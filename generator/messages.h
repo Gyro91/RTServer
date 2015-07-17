@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 
-enum msg_type { TYPE1, TYPE2 }; /** number of message type  */
+/** number of message type  */
+
+enum msg_type { TYPE1, TYPE2 };
 
 /**
- * @brief Defines a message format:
+ * @brief Defines a message format
  *
  * */
 

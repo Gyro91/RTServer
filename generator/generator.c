@@ -2,9 +2,19 @@
 #include <unistd.h>
 #include "messages.h"
 #define LOOP 1
-
-/** @brief assigns a core to the process
- * */
+/*
+ * TEST INIT
+ * int test_init(int core){
+ *  int x = get_affinity();
+ *
+ * 	if ( x == core )
+ * 		return 1;
+ * 	else return 0;
+ * }
+ */
+/**
+  * assigns a core to the process
+  */
 void init()
 {
 
@@ -39,25 +49,10 @@ enum msg_type draw_message()
 
 }
 
-
-
-int main(int argc, char *argv[])
+int max (int n1, int n2 )
 {
-	// init
-
-	while( LOOP ){
-    // drawing
-
-	// creating
-
-	// forwarding
-
-	// sleep to next period
-	}
-
-
-
-	return 0;
-
-
+   if ( n2 > n1 )  return n2;
+   return n1;
 }
+
+
