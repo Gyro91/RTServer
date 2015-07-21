@@ -10,11 +10,11 @@ enum msg_type { TYPE1, TYPE2 };
  *
  * */
 
-typedef struct message {
+typedef struct message_t_ {
+	char *payload;
 	enum msg_type type; /** type of the message */
-	char *addr; /** destination address */
-	int dport; /** destination port */
-}dispatch;
+
+} message_t;
 
 
 

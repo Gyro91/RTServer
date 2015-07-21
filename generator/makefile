@@ -1,13 +1,13 @@
 CC=gcc
 CFLAGS=-Wall 
 
-all: generator
+all: main
 
-generator: generator.o
-	$(CC)  generator.o -o generator
+main: main.o
+	$(CC)  main.o -o generator
 	
-generator.o: generator.c messages.h
-	$(CC) $(CFLAGS) -c generator.c 
+main.o: generator.c messages.h main.c
+	$(CC) $(CFLAGS) -c main.c 
 		 
 clean: 
 	rm -f core *.o 
