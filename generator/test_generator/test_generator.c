@@ -7,6 +7,7 @@
 #include "../fun_gen.h"
 #include "../messages.h"
 #include <stdio.h>
+#include <stdlib.h>
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
@@ -79,6 +80,30 @@ void draw_message_test()
 
 }
 
+/* TEST generate_payload
+ * size of payload must be > 0 &  <= DIM_MAX_PAYLOAD
+ */
+void generate_payload_test()
+{
+	char *payload_t; // payload test
+	int test = 0,size_t = 0;
+
+	size_t = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 1; // dim between 1 & DIM_MAX
+	payload_t = (char *) malloc(size_t); // allocating memory for size bytes
+	generate_payload(payload_t, size_t);
+
+	CU_ASSERT_EQUAL(size_t, (strlen(payload_t)+1));
+
+	if( (strlen(payload_t)) > 0 &&
+		((strlen(payload_t)+1) <= DIM_MAX_PAYLOAD))
+			test = 1;
+
+	CU_ASSERT(test);
+
+	free(payload_t);
+}
+
+
 
 /************* Test Runner Code goes here **************/
 
@@ -98,7 +123,8 @@ int main ( void )
 	}
 
 	/* add the tests to the suite */
-	if (	(NULL == CU_add_test(pSuite, "draw_message_test", draw_message_test)) ||
+	if (	(NULL == CU_add_test(pSuite, "generate_payload_test", generate_payload_test)) ||
+			(NULL == CU_add_test(pSuite, "draw_message_test", draw_message_test)) ||
 			(NULL == CU_add_test(pSuite, "init_generator_test", init_generator_test))
 	)
 	{

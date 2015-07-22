@@ -6,7 +6,7 @@ CUNIT=-lcunit
 all: test 
 
 generator.o:../generator.c
-	$(CC) $(CFLAGS) -c ../generator.c
+	$(CC) $(CFLAGS) -c ../generator.c 
 
 test: generator.o ../generator.c
 	$(CC) $(CFLAGS) $(WHERE) -o test_generator test_generator.c  generator.o $(CUNIT)
