@@ -5,7 +5,6 @@
 //#include "CUnit/Console.h"
 
 #include "../fun_gen.h"
-#include "../messages.h"
 #include <stdio.h>
 #include <stdlib.h>
 #ifndef __USE_GNU

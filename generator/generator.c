@@ -1,21 +1,27 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "messages.h"
 #include <time.h>
 #include <string.h>
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
 #include <sched.h>
-#define TEST // for testing it needs variables that are defined in main.c
-			 // but for the test it is necessary generator.o without linking
+#include "messages.h"
+
+/*
+ * In testing mode global variable,besides it looks in another file
+ * */
 
 #ifdef TEST
 struct sockaddr_in srv_addr; /** server address */
 int sk; /* socket for communication between generator and server */
-#endif TEST
+#endif
 
+#ifndef TEST
+extern struct sockaddr_in srv_addr; /** server address */
+extern int sk; /* socket for communication between generator and server */
+#endif
 
 /** @brief print the error passed and exit */
 
@@ -78,7 +84,7 @@ void setup_TCP_client()
  *   @return 1 in case of success,0 vice versa
  */
 
-void generate_payload(char *payload, int size)
+void generate_payload(char *payload, unsigned char size)
 {
 	int i;
 	char c;
@@ -100,16 +106,52 @@ void generate_payload(char *payload, int size)
  *	@param pay is the payload of the message
  */
 // must be modified (message_t,size)
-void generate_message(message_t *mess)
+void generate_message(message_t *mess, unsigned char size)
 {
-	int size;
-
-	srand(time(NULL));
-
-	size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 1; // dim between 1 & DIM_MAX
 	mess->payload = (char *) malloc(size); // allocating memory for size bytes
-	generate_payload(mess->payload,size);
+	generate_payload(mess->payload,size); // random payload
 
-	mess->type = draw_message();
+	mess->type = draw_message(); // random type
 }
 
+/** @brief send a packet to the  server
+ *  @param mess message to be delivered
+ *  @param size dimension of the content(payload)
+ */
+void send_pkt(message_t *mess,unsigned char size)
+{
+	int ret;
+	char *buffer;
+
+	buffer = (char *)malloc(size + 1);
+	strcpy(buffer,mess->payload);
+	if( mess->type )
+		strcat(buffer,"1");
+	else
+		strcat(buffer,"0");
+
+	size = size + 1;
+	// send dimension
+	ret = send(sk,(void *)&size,1,0);
+	if( ret < 0 )
+		Error_("Error send dimension!");
+
+	// send message
+	ret = send(sk,(void *)buffer,size,0);
+	if( ret < 0 )
+		Error_("Error send message!");
+
+	free(buffer);
+}
+
+/** add ms to the specific destination */
+void time_add_ms(struct timespec *dst, long int ms)
+{
+  dst->tv_sec += ms/1000;
+  dst->tv_nsec += (ms % 1000) * 1e6;
+
+  if (dst->tv_nsec > 1e9) {
+	  dst->tv_nsec -= 1e9;
+	  dst->tv_sec++;
+  }
+}
