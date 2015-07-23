@@ -72,11 +72,13 @@ void setup_TCP_client()
 	memset(&srv_addr, 0, sizeof(srv_addr));
 	srv_addr.sin_family = AF_INET;
 	srv_addr.sin_port = htons(1234);
-	ret = inet_pton(AF_INET, "192.168.1.1", &srv_addr.sin_addr);
+	ret = inet_pton(AF_INET, "127.0.0.1", &srv_addr.sin_addr);
 
 	ret = connect(sk, (struct sockaddr*)&srv_addr, sizeof(srv_addr));
 	if( ret < 0 )
 		Error_("Error connect");
+
+    printf("#Connected with server\n");
 }
 
 /**  @brief generates randomly a payload
