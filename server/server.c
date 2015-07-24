@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	}
 	else{
 
-		wait(&status);
+		wait(&status); // wait termination child
 
 	}
 

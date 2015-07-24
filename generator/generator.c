@@ -134,15 +134,26 @@ void send_pkt(message_t *mess,unsigned char size)
 
 	size = size + 1;
 	// send dimension
+	printf("%s\n", buffer);
+	printf("%d\n", size);
+
 	ret = send(sk,(void *)&size,1,0);
 	if( ret < 0 )
-		Error_("Error send dimension!");
+		Error_("Error send dimension");
 
 	// send message
 	ret = send(sk,(void *)buffer,size,0);
 	if( ret < 0 )
 		Error_("Error send message!");
 
+	/*
+	int i;
+	for(i = 0; i < size ; ++i){
+		ret = send(sk,(void *)&buffer[i], 1 ,0);
+		if( ret < 0 )
+			Error_("Error send message");
+	}
+	*/
 	free(buffer);
 }
 

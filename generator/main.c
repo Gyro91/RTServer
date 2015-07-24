@@ -11,7 +11,7 @@ int sk; /* socket for communication between generator and server */
 int main(int argc, char *argv[])
 {
 	struct timespec t;
-	int period = 250; /** generator is a process periodic */
+	int period = 1250; /** generator is a process periodic */
 	unsigned char size;
 	message_t mess; /** message to be delivered */
 

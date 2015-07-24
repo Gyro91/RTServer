@@ -2,12 +2,25 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "messages.h"
 #define LOOP 1
 
 struct sockaddr_in my_addr, cl_addr; /** struct with address for server and client */
 int sk, cn_sk; /** socket and connected socket */
+int status_c = 0; /** status of connection */
 
+/* add ms to the specific destination */
+void time_add_ms(struct timespec *dst, long int ms)
+{
+	dst->tv_sec += ms/1000;
+	dst->tv_nsec += (ms % 1000) * 1e6;
+
+	if (dst->tv_nsec > 1e9) {
+		dst->tv_nsec -= 1e9;
+		dst->tv_sec++;
+	}
+}
 
 /** @brief waits a signal from both consumers
  *
@@ -17,34 +30,70 @@ int sk, cn_sk; /** socket and connected socket */
 void wait_for_signal()
 {
 
-
 }
 
+/** handling return of recv: -1 error on socket, 0 if connection lost */
+void handle_error_recv(int ret)
+{
+	if( ret == -1)
+	{
+		perror("Error recv size\n");
+		exit(1);
+	}
+
+	if ( ret == 0 )
+		status_c = 0;
+
+}
 /** @brief receive packet from generator
  *
  *  it receives size,then the packet and generates a message_t
  *
  * 	@return original message,composed from type and payload
  */
-/*
+
 message_t receive_pkt()
 {
-	// buffering
+	int ret;
+	unsigned char size;
+	char *buffer;
+	message_t m;
+
+	ret = recv(cn_sk, (void *)&size, 1, 0);
+	handle_error_recv(ret);
+
+	if( status_c ){
+		buffer = (char *)malloc(size);
+		ret = recv(cn_sk, (void *)buffer, size, MSG_WAITALL);
+		handle_error_recv(ret);
+		printf("%s\n", buffer);
+		printf("%d\n", size);
+		free(buffer);
+	}
+
+	return m;
+
 }
-*/
+
+
 /**
  * @brief setup for listening
  *
- * it does prelimanry operations for a connection TCP
+ * it does preliminary operations for a connection TCP
  */
 
 void setup_TCP_server()
 {
 	int ret;
-	socklen_t addrlen;
+	int yes = 1;
 
 	if( ( sk = socket(AF_INET, SOCK_STREAM, 0)) == -1 ){
 		perror("Server-socket() error!");
+		exit(1);
+	}
+
+	if(setsockopt( sk,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int))==-1){
+		perror("Server-setsockopt() error!");
 		exit(1);
 	}
 
@@ -63,14 +112,21 @@ void setup_TCP_server()
 		exit(1);
 	}
 
-	addrlen = sizeof(cl_addr);
+}
+/** accepts a connection tcp and changes status_c*/
+
+void accept_connection()
+{
+	socklen_t addrlen = sizeof(cl_addr);
 
 	if( (cn_sk = accept(sk, (struct sockaddr*)&cl_addr, &addrlen)) == -1 ){
 		perror("Server-accept() error!");
 		exit(1);
 	}
-}
+	status_c = 1; // there's a connection
+	printf("#Connection with generator: accepted \n");
 
+}
 
 /**
  *  @brief forwards packet to a consumer
@@ -85,26 +141,35 @@ void forward_message(){
 
 int main(int argc, char *argv[])
 {	
+	int period = 250; /** dispatcher is a process periodic */
+	struct timespec t;
+
 	printf("#Dispatcher created\n");
 
 	// waiting for a signal from consumers(condition variable)
 
-	// setup for listening
+	// setup for a connection TCP
+	setup_TCP_server();
+	accept_connection();
 
-	// accept
-
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	time_add_ms(&t, period);
 	while( LOOP ){
-
-		setup_TCP_server();
-		getchar();
-		break;
 		// receive
+		receive_pkt();
 
-		// decide those who to forward
-
-		// forwarding
+		if(status_c){
+			// decide those who to forward
+			// forwarding
+		}
+		else
+			accept_connection();
 
 		// sleep to next period
+		clock_nanosleep(CLOCK_MONOTONIC,
+				TIMER_ABSTIME, &t, NULL);
+		time_add_ms(&t, period);
+
 	}
 
 	return 0;
