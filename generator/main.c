@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
-						TIMER_ABSTIME, &t, NULL);
+				TIMER_ABSTIME, &t, NULL);
 		time_add_ms(&t, period);
 
 	}

@@ -41,9 +41,10 @@ void handle_error_recv(int ret)
 		exit(1);
 	}
 
-	if ( ret == 0 )
+	if ( ret == 0 ){
 		status_c = 0;
-
+		printf("#Connection with generator:lost\n");
+	}
 }
 /** @brief receive packet from generator
  *
