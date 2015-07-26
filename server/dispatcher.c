@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -9,6 +10,8 @@
 struct sockaddr_in my_addr, cl_addr; /** struct with address for server and client */
 int sk, cn_sk; /** socket and connected socket */
 int status_c = 0; /** status of connection */
+
+char *myfifo1 = "/tmp/myfifo1";
 
 /* add ms to the specific destination */
 void time_add_ms(struct timespec *dst, long int ms)
@@ -53,12 +56,12 @@ void handle_error_recv(int ret)
  * 	@return original message,composed from type and payload
  */
 
-message_t receive_pkt()
+int receive_dispatch_pkt()
 {
-	int ret;
+	int ret, fd;
 	unsigned char size;
 	char *buffer;
-	message_t m;
+	char size_f[4];
 
 	ret = recv(cn_sk, (void *)&size, 1, 0);
 	handle_error_recv(ret);
@@ -67,12 +70,19 @@ message_t receive_pkt()
 		buffer = (char *)malloc(size);
 		ret = recv(cn_sk, (void *)buffer, size, MSG_WAITALL);
 		handle_error_recv(ret);
+
+		fd = open(myfifo1, O_WRONLY);
+		sprintf(size_f, "%d", size);
+		write(fd, size_f, 4);
+		write(fd, buffer, size);
+		close(fd);
+/*
 		printf("%s\n", buffer);
-		printf("%d\n", size);
+		printf("%d\n", size); */
 		free(buffer);
 	}
 
-	return m;
+	return size;
 
 }
 
@@ -101,7 +111,7 @@ void setup_TCP_server()
 	memset(&my_addr, 0, sizeof(my_addr));
 	my_addr.sin_family = AF_INET;
 	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	my_addr.sin_port = htons(1234);
+	my_addr.sin_port = htons(1235);
 
 	if( (ret = bind(sk,(struct sockaddr*)&my_addr, sizeof(my_addr))) == -1 ){
 		perror("Server-bind() error!");
@@ -157,13 +167,9 @@ int main(int argc, char *argv[])
 	time_add_ms(&t, period);
 	while( LOOP ){
 		// receive
-		receive_pkt();
+		receive_dispatch_pkt();
 
-		if(status_c){
-			// decide those who to forward
-			// forwarding
-		}
-		else
+		if( !status_c )
 			accept_connection();
 
 		// sleep to next period

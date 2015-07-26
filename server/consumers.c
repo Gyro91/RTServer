@@ -1,11 +1,18 @@
 #include <stdio.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "consumers.h"
 #define LOOP 1
+#define MAX_BUF 1024
+
+
+pthread_mutex_t mux = PTHREAD_MUTEX_INITIALIZER;
 
 //unsigned int C[]; /** It contains runtime for each task */
 //unsigned int D[]; /** It contains deadline for each task(equal server deadline) */
@@ -25,12 +32,46 @@ void generate_conf()
 
 }
 
-/** this is the body of each thread*/
+/** this is the body of each thread:
+ * - reads until there's a message( read is blocking )
+ * - reads size of the message
+ * - reads the message
+ * - elaborating
+ * - reads again for another message to elaborate and so on
+ * */
 
 void *thread_main(void *arg)
 {
+	int fd; /* file descriptor */
+	char *myfifo = (char *)arg;
+	unsigned char size;
+	char *buffer;
+	char buff_size[4]; /* for receiving size*/
 
-	printf("%d\n",*(int *)arg);
+	while( LOOP ){
+		pthread_mutex_lock(&mux);
+
+		/* reading size */
+		mkfifo(myfifo, 0666);
+		fd = open(myfifo, O_RDONLY);
+		read(fd, buff_size, 4);
+		size = atoi(buff_size);
+
+		/* reading data */
+		buffer = (char *)malloc(size);
+		read(fd, buffer, size);
+		close(fd);
+		unlink(myfifo);
+		printf("%s\n", buffer);
+		printf("%d\n", size);
+
+		pthread_mutex_unlock(&mux);
+
+		free(buffer);
+
+	}
+	printf("%s\n", (char *)arg);
+
 
 	pthread_exit(0);
 }
@@ -49,7 +90,7 @@ int main(int argc, char *argv[])
 	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
 	for(i = 0; i < ntask; i++){
 		ret = pthread_create(&t_list[i],
-							 NULL, thread_main, (void *)&i);
+							 NULL, thread_main, (void *)argv[2]);
 		if( ret ){
 			printf("Error pthread_create()\n");
 			exit(1);
@@ -59,8 +100,8 @@ int main(int argc, char *argv[])
 	/* process father waits the end of threads */
 	for(i = 0; i < ntask; i++){
 			ret = pthread_join(t_list[i],(void **)&status);
-			if( ret ){
-				printf("Error pthread_wait()\n");
+			if( ret > 0 ){
+				printf("Error pthread_join()\n");
 				exit(1);
 			}
 		}

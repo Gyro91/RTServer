@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 		if( pid_c1 == 0 ){
 			/* becomes consumer 1 */
 			execlp("./consumer1", "consumer1",
-					buffer, (char*)NULL);
+					buffer, "/tmp/myfifo1", (char*)NULL);
 			printf("Exec fallita!\n");
 			exit(1);
 		}

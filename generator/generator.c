@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
@@ -71,7 +72,7 @@ void setup_TCP_client()
 
 	memset(&srv_addr, 0, sizeof(srv_addr));
 	srv_addr.sin_family = AF_INET;
-	srv_addr.sin_port = htons(1234);
+	srv_addr.sin_port = htons(1235);
 	ret = inet_pton(AF_INET, "127.0.0.1", &srv_addr.sin_addr);
 
 	ret = connect(sk, (struct sockaddr*)&srv_addr, sizeof(srv_addr));
