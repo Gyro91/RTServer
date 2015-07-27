@@ -46,7 +46,7 @@ void *thread_main(void *arg)
 	char *myfifo = (char *)arg;
 	unsigned char size;
 	char *buffer;
-	char buff_size[4]; /* for receiving size*/
+	char buff_size[4]; /* to receive size */
 
 	while( LOOP ){
 		pthread_mutex_lock(&mux);
@@ -57,11 +57,14 @@ void *thread_main(void *arg)
 		read(fd, buff_size, 4);
 		size = atoi(buff_size);
 
-		/* reading data */
+		/* allocating memory for size byte */
 		buffer = (char *)malloc(size);
+
+		/* reading data */
 		read(fd, buffer, size);
 		close(fd);
 		unlink(myfifo);
+
 		printf("%s\n", buffer);
 		printf("%d\n", size);
 
@@ -70,8 +73,6 @@ void *thread_main(void *arg)
 		free(buffer);
 
 	}
-	printf("%s\n", (char *)arg);
-
 
 	pthread_exit(0);
 }

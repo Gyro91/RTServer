@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	while( LOOP ){
 
 		// creating message
-		size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 1; // dim between 1 & DIM_MAX
+		size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 8; // dim between 8 & DIM_MAX
 		generate_message(&mess, size);
 
 		// forwarding

@@ -95,8 +95,8 @@ void generate_payload(char *payload, unsigned char size)
 	srand(time(NULL)); // setting seed
 
 	for(i = 0; i < size-1; i++){
-		c = rand() % 65;;
-		c += 65;
+		c = rand() % 26;;
+		c += 97;
 		payload[i] = c;
 	}
 

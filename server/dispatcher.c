@@ -58,23 +58,30 @@ void handle_error_recv(int ret)
 
 int receive_dispatch_pkt()
 {
-	int ret, fd;
+	int ret, fd , type;
 	unsigned char size;
 	char *buffer;
 	char size_f[4];
 
-	ret = recv(cn_sk, (void *)&size, 1, 0);
+	ret = recv(cn_sk, (void *)&size, 1, 0); /* receiving size */
 	handle_error_recv(ret);
 
 	if( status_c ){
 		buffer = (char *)malloc(size);
-		ret = recv(cn_sk, (void *)buffer, size, MSG_WAITALL);
+		ret = recv(cn_sk, (void *)buffer, size, MSG_WAITALL); /* receive message */
 		handle_error_recv(ret);
 
-		fd = open(myfifo1, O_WRONLY);
+		type = ( buffer[size - 2] == '0' ) ? 0 : 1; /* taking type */
+		buffer[size - 2] = '\0'; /* eliminating type from message */
+		size = size - 1;
+		printf("type:%d\n",type);
+
+
 		sprintf(size_f, "%d", size);
-		write(fd, size_f, 4);
-		write(fd, buffer, size);
+
+		fd = open(myfifo1, O_WRONLY);
+		write(fd, size_f, 4); /* sending size via IPC */
+		write(fd, buffer, size); /* sendig message via IPC */
 		close(fd);
 /*
 		printf("%s\n", buffer);
