@@ -50,10 +50,25 @@ void generate_conf()
 void *thread_main(void *arg)
 {
 	int fd; /* file descriptor */
-	char *myfifo = (char *)arg; /* name of named pipe */
-	unsigned char size; /* size data to read*/
-	char *buffer;  /* buffer for data */
+	char *myfifo = (char *)arg;
+	unsigned char size;
+	char *buffer;
 	char buff_size[4]; /* to receive size */
+
+	cpu_set_t bitmap;
+
+	pthread_getaffinity_np(0,sizeof(bitmap), &bitmap);
+	/*
+	cpu_set_t bitmap;
+
+	pthread_getaffinity_np(0,sizeof(bitmap), &bitmap);
+	if( CPU_COUNT(&bitmap) == 1 )
+		printf("test1 ok %s\n", consumer_i);
+	if( CPU_ISSET(2, &bitmap) != 0  )
+		printf("test2 ok %s\n", consumer_i);
+	else
+		printf("test failed %s\n", consumer_i);
+*/
 
 	while( LOOP ){
 		pthread_mutex_lock(&mux);
@@ -85,23 +100,6 @@ void *thread_main(void *arg)
 	pthread_exit(0);
 }
 
-/** sets CPU-2 to thread with tid thread if consumer is 1
- * 	otherwise sets CPU-3 to consumer2
- */
-
-void set_cpu_thread(pthread_t thread,char *consumer)
-{
-	cpu_set_t bitmap;
-
-	CPU_ZERO(&bitmap);
-	if(!strcmp(consumer_i,"consumer1"))
-		CPU_SET(2, &bitmap);
-	else
-		CPU_SET(3, &bitmap);
-
-	pthread_setaffinity_np(thread,sizeof(bitmap), &bitmap);
-
-}
 
 int main(int argc, char *argv[])
 {
@@ -111,7 +109,7 @@ int main(int argc, char *argv[])
 	strcpy(consumer_i, argv[0]);
 	printf("#Created %s\n", consumer_i);
 
-	ntask = 5 ;//atoi(argv[1]); /* number of task to be created */
+	ntask = atoi(argv[1]); /* number of task to be created */
 	// generates configurations for consumers threads
 	// generating ntask thread
 	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
@@ -122,8 +120,6 @@ int main(int argc, char *argv[])
 			printf("Error pthread_create()\n");
 			exit(1);
 		}
-
-		set_cpu_thread(t_list[i], consumer_i);
 	}
 
 	/* process father waits the end of threads */
