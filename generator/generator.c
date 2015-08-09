@@ -72,7 +72,7 @@ void setup_TCP_client()
 
 	memset(&srv_addr, 0, sizeof(srv_addr));
 	srv_addr.sin_family = AF_INET;
-	srv_addr.sin_port = htons(1248);
+	srv_addr.sin_port = htons(1286);
 	ret = inet_pton(AF_INET, "127.0.0.1", &srv_addr.sin_addr);
 
 	ret = connect(sk, (struct sockaddr*)&srv_addr, sizeof(srv_addr));
@@ -134,10 +134,9 @@ void send_pkt(message_t *mess,unsigned char size)
 		strcat(buffer,"0");
 
 	size = size + 1;
-	// send dimension
-	printf("%s\n", buffer);
-	printf("%d\n", size);
 
+	printf("%s\n", buffer);
+	// send dimension
 	ret = send(sk,(void *)&size,1,0);
 	if( ret < 0 )
 		Error_("Error send dimension");

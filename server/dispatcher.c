@@ -128,7 +128,7 @@ void setup_TCP_server()
 	memset(&my_addr, 0, sizeof(my_addr));
 	my_addr.sin_family = AF_INET;
 	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	my_addr.sin_port = htons(1248);
+	my_addr.sin_port = htons(1286);
 
 	if( (ret = bind(sk,(struct sockaddr*)&my_addr, sizeof(my_addr))) == -1 ){
 		perror("Server-bind() error!");

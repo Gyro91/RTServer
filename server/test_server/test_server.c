@@ -13,26 +13,8 @@
 #include <sched.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "../consumers.h"
 
-void set_cpu(int pid1, int pid2, int pid3)
-{
-	cpu_set_t bitmap;
-
-	CPU_ZERO(&bitmap); // resetting bitmap
-	CPU_SET(1, &bitmap); // setting bitmap to zero
-
-	sched_setaffinity(pid1, sizeof(bitmap), &bitmap); /* pid1 takes cpu1*/
-
-	CPU_ZERO(&bitmap); // resetting bitmap
-	CPU_SET(2, &bitmap); // setting bitmap to zero
-
-	sched_setaffinity(pid2, sizeof(bitmap), &bitmap); /* pid2 takes cpu2*/
-
-	CPU_ZERO(&bitmap); // resetting bitmap
-	CPU_SET(3, &bitmap); // setting bitmap to zero
-
-	sched_setaffinity(pid2, sizeof(bitmap), &bitmap); /* pid3 takes cpu3*/
-}
 
 /* Test Suite setup and cleanup functions: */
 
@@ -56,58 +38,71 @@ void test_case_sample(void)
 	CU_ASSERT_STRING_EQUAL("string #1", "string #2");
 }
 
-void test_cpu1()
+struct response_task *rt;
+
+/** inserting a new element at the head in the list of response time */
+void insert_rt()
 {
-	cpu_set_t bitmap;
+	struct response_task *qt = NULL; /* temp pointer */
 
-	CU_ASSERT_EQUAL(CPU_COUNT(&bitmap), 1); // checking if number of cpu > 0
-	CU_ASSERT_NOT_EQUAL(CPU_ISSET(1, &bitmap),1); // checking if it is set cpu number 1
-}
+	qt = (struct response_task *)malloc(sizeof(struct response_task));
 
-void test_cpu2()
-{
-	cpu_set_t bitmap;
-
-	CU_ASSERT_EQUAL(CPU_COUNT(&bitmap), 1); // checking if number of cpu > 0
-	CU_ASSERT_NOT_EQUAL(CPU_ISSET(2, &bitmap),1); // checking if it is set cpu number 2
-
-}
-
-void test_cpu3()
-{
-	cpu_set_t bitmap;
-
-	CU_ASSERT_EQUAL(CPU_COUNT(&bitmap), 1); // checking if number of cpu > 0
-	CU_ASSERT_NOT_EQUAL(CPU_ISSET(3, &bitmap),1); // checking if it is set cpu number 3
-
-}
-
-void test_set_cpu()
-{
-	int pid1, pid2 , pid3 ,
-		wait_c = 1, status;
-
-	pid1 = fork(); // creating first child
-	if( pid1 != 0 )
-		pid2 = fork(); // creating second child
-	if( pid1 != 0 && pid2 != 0 )
-		pid3 = fork(); // creating third child
-	if ( pid1 != 0 && pid2 != 0 && pid3 != 0){
-		set_cpu(pid1, pid2 ,pid3);
-		wait_c = 0;
-		wait(&status);
+	if( rt == NULL ) /* no elements in the list */
+		rt = qt;
+	else{
+		qt->next = rt;
+		rt = qt;
 	}
 
+}
 
-	if( pid1 == 0 )
-		test_cpu1();
 
-	if( pid2 == 0)
-		test_cpu2();
+/** deleting the head element of the list */
+void delete_rt()
+{
+	struct response_task *qt = NULL;
 
-	if( pid3 == 0 )
-		test_cpu3();
+	if( rt != NULL ){
+		qt = rt;
+		rt = rt->next;
+		free(qt);
+	}
 
+}
+
+/** counting number of elements in the list*/
+int count_rt()
+{
+	int size = 0;
+	struct response_task *qt = rt;
+
+	for(qt = rt; qt != 0; qt = qt->next)
+		size++;
+
+	return size;
+
+}
+
+void test_f_list()
+{
+	int i;
+
+	CU_ASSERT_EQUAL(0, count_rt());
+
+	insert_rt();
+
+	CU_ASSERT_EQUAL(1, count_rt());
+
+	for(i = 0; i < 5; i++)
+		insert_rt();
+	CU_ASSERT_EQUAL(6, count_rt());
+
+	delete_rt();
+	CU_ASSERT_EQUAL(5, count_rt());
+
+	for(i = 0; i < 6; i++)
+		delete_rt(rt);
+	CU_ASSERT_EQUAL(0, count_rt());
 }
 
 /************* Test Runner Code goes here **************/
@@ -128,7 +123,7 @@ int main ( void )
 	}
 
 	/* add the tests to the suite */
-	if (	(NULL == CU_add_test(pSuite, "test_set_cpu", test_set_cpu))	)
+	if (	(NULL == CU_add_test(pSuite, "test_f_list", test_f_list))	)
 	{
 		CU_cleanup_registry();
 		return CU_get_error();
