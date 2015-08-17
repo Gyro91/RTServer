@@ -169,12 +169,42 @@ void *dummy_main(void *arg)
 
 }
 
+/** returns 0 if it's consumer1 else 1 */
+
+int who_am_i()
+{
+	if( strcmp(consumer_i, "consumer1") == 0 )
+		return 0;
+	else
+		return 1;
+}
+
+/** change output to new terminal */
+void change_terminal()
+{
+	int fd;
+	char * myfifo = "/tmp/myfifo3"; /* my_fifo */
+	char buf[15]; /* buffer */
+
+	printf("#Waiting for process output\n");
+	mkfifo(myfifo, 0666);
+    fd = open(myfifo, O_RDONLY);
+    read(fd, buf, 15);
+    close(fd);
+    unlink(myfifo);
+
+    freopen(buf, "a", stdout);
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ntask, ret, status;
 	pthread_t *t_list;
 
 	strcpy(consumer_i, argv[0]);
+	if( who_am_i() == 1 )
+		change_terminal();
+
 	printf("#Created %s\n", consumer_i);
 
 	ntask = atoi(argv[1]); /* number of task to be created */

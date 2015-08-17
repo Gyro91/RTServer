@@ -15,6 +15,7 @@ dispatcher.o : messages.h dispatcher.c
 consumers : consumers.o consumers.c
 	$(CC) $(CFLAGS) -o consumer1 consumers.c -lpthread  
 	$(CC) $(CFLAGS) -o consumer2 consumers.c -lpthread  
+	$(CC) $(CFLAGS) -o output output.c
 	
 clean: 
 	rm -f core *.o 
