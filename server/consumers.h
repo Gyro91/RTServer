@@ -1,4 +1,10 @@
 #include <time.h>
+#include <linux/unistd.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <sys/syscall.h>
+
+#define gettid() syscall(__NR_gettid)
 
 typedef struct task_attr_ {
 

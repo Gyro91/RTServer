@@ -13,11 +13,24 @@
 #define LOOP 1
 
 pthread_mutex_t mux = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mux_r = PTHREAD_MUTEX_INITIALIZER;
-char consumer_i[10];
+char consumer_i[10];/** name of the consumer */
 
-struct response_task rt[500];
-int next;
+struct response_task rt[500]; /** circular array for recording response times */
+int next;/** index circular array */
+
+pthread_barrier_t barr;
+
+/** @brief calculates response time in ms */
+
+long int calculate_rt(struct timespec *ta, struct timespec *tf)
+{
+	long int at, ft;
+
+	at = (ta->tv_sec * 1000) + (ta->tv_nsec / 1000000);
+	ft = (tf->tv_sec * 1000) + (tf->tv_nsec / 1000000);
+
+	return (ft - at);
+}
 
 //unsigned int C[]; /** It contains runtime for each task */
 //unsigned int D[]; /** It contains deadline for each task(equal server deadline) */
@@ -64,13 +77,12 @@ size_t hash(char const *input) {
 
 void *thread_main(void *arg)
 {
-	int i;
-	int fd; /* file descriptor */
+	int i, fd; /* count variable and descriptor */
 	char *myfifo = (char *)arg; /* name of named pipe */
 	unsigned char size; /* size data to read*/
 	char *buffer;  /* buffer for data */
 	char buff_size[4]; /* to receive size */
-	struct timespec ta, tf;
+	struct timespec ta, tf;/* arrival and finishing time struct */
 
 	while( LOOP ){
 
@@ -81,12 +93,14 @@ void *thread_main(void *arg)
 		pthread_mutex_lock(&mux);
 
 		time_copy(&rt[next].arrival_time, &ta);
-		/* reading size */
+
+		/* reading size data to be received */
 		mkfifo(myfifo, 0666);
 		fd = open(myfifo, O_RDONLY);
 		read(fd, buff_size, 4);
-		printf("#Starting job %s\n", consumer_i);
 		size = atoi(buff_size);
+
+		printf("#Starting job %s\n", consumer_i);
 
 		/* allocating memory for size byte */
 		buffer = (char *)malloc(size);
@@ -97,7 +111,7 @@ void *thread_main(void *arg)
 		unlink(myfifo);
 
 		printf("%s\n", buffer);
-		for(i = 0; i < 1000; i++)
+		for(i = 0; i < 10; i++)
 			hash(buffer);
 
 		printf("#Finished job %s\n\n", consumer_i);
@@ -106,15 +120,16 @@ void *thread_main(void *arg)
 		clock_gettime(CLOCK_MONOTONIC, &tf);
 		time_copy(&rt[next].finishing_time, &tf);
 
+		rt[next].tid = gettid();
+
 		if(next == 499)
 			next = 0;
 		else
 			next++;
 
-		rt[next].tid = getpid();
-
 		pthread_mutex_unlock(&mux);
 
+		pthread_barrier_wait(&barr);
 	}
 
 	pthread_exit(0);
@@ -138,26 +153,32 @@ void set_cpu_thread(pthread_t thread,char *consumer)
 
 }
 
+/** body of dummy task.It's the task for calculating response time */
 
 void *dummy_main(void *arg)
 {
 	int i;
-	int period = 30000; /** dispatcher is a process periodic */
+	int period = 30000; /* dummy is a task periodic */
 	struct timespec t;
-
-	//long int response_time;
+	long int response_t;  /* response time */
 
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
-		printf("#Report Dummy task\n");
+
+		printf("#Report Dummy task %s\n", consumer_i);
 
 		for(i = 0; i < 500; i++){
-			if(rt[i].tid != 0){
-				printf("Response Thread %d %s\n",rt[i].tid, consumer_i);
+			if( rt[i].tid > 0 ){
+				response_t = calculate_rt(&rt[i].arrival_time,
+										  &rt[i].finishing_time);
+				printf("Response time Thread[%d]: ", rt[i].tid);
+				printf("%ld ms\n", response_t);
 				rt[i].tid = 0;
 			}
 		}
+		printf("\n");
+
 
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
@@ -179,45 +200,84 @@ int who_am_i()
 		return 1;
 }
 
-/** change output to new terminal */
+/** changes output to new terminal */
+
 void change_terminal()
 {
 	int fd;
-	char * myfifo = "/tmp/myfifo3"; /* my_fifo */
+	char *myfifo = "/tmp/myfifo3"; /* my_fifo */
 	char buf[15]; /* buffer */
+	char signal[6] = "start";
+    char *myfifo_c = "/tmp/myfifo4";
 
-	printf("#Waiting for process output\n");
+    printf("#Waiting for process output\n");
+
+	/* reading path new terminal */
 	mkfifo(myfifo, 0666);
     fd = open(myfifo, O_RDONLY);
     read(fd, buf, 15);
     close(fd);
     unlink(myfifo);
 
+    /* associating new output to the process */
     freopen(buf, "a", stdout);
+
+    /* sending signal to consumer1*/
+    fd = open(myfifo_c, O_WRONLY);
+    write(fd, signal, 6);
+    close(fd);
 }
+
+/** consumer1 waits consumer2 to change terminal */
+
+void wait_consumer2()
+{
+	int fd;
+	char *myfifo = "/tmp/myfifo4"; /* my_fifo */
+	char buf[15]; /* buffer */
+
+	while( 1 ){
+		mkfifo(myfifo, 0666);
+		fd = open(myfifo, O_RDONLY);
+		read(fd, buf, 6); /* reading path new terminal */
+		close(fd);
+		unlink(myfifo);
+
+		if( strcmp(buf, "start") == 0 )
+			break;
+	}
+
+}
+
 
 int main(int argc, char *argv[])
 {
 	int i, ntask, ret, status;
 	pthread_t *t_list;
 
+	/* to understand who's the process */
 	strcpy(consumer_i, argv[0]);
+
+	/* if consumer2 change output to new terminal */
 	if( who_am_i() == 1 )
 		change_terminal();
+	else
+		wait_consumer2();
 
 	printf("#Created %s\n", consumer_i);
 
-	ntask = atoi(argv[1]); /* number of task to be created */
+	ntask = 10;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
+	pthread_barrier_init(&barr, NULL, 10);
 
-	// generating (ntask+1) thread
+	/* generating (ntask+1) thread */
 	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
 	ret = pthread_create(&t_list[0],
 				         NULL, dummy_main, NULL);
 	if( ret ){
-				printf("Error pthread_create() dummy\n");
-				exit(1);
-			}
+		printf("Error pthread_create() dummy\n");
+		exit(1);
+	}
 
 	for(i = 1; i < (ntask + 1); i++){
 		ret = pthread_create(&t_list[i],
@@ -226,7 +286,7 @@ int main(int argc, char *argv[])
 			printf("Error pthread_create()\n");
 			exit(1);
 		}
-
+		/* allocating cpu-unit for each thread */
 		set_cpu_thread(t_list[i], consumer_i);
 	}
 

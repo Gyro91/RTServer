@@ -6,10 +6,10 @@
 int main()
 {
     int fd;
-    char * myfifo = "/tmp/myfifo3";
+    char *myfifo = "/tmp/myfifo3";
 
     fd = open(myfifo, O_WRONLY);
-    write(fd, ttyname(1), strlen(ttyname(1)) +1);
+    write(fd, ttyname(1), strlen(ttyname(1)) +1); /* sending path terminal */
     close(fd);
 
     return 0;
