@@ -11,19 +11,20 @@
 #endif
 #include <pthread.h>
 #define LOOP 1
+#define DIM_NAME 10
 
-pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER;
-char consumer_i[10];/** name of the consumer */
-
-struct response_task rt[500]; /** circular array for recording response times */
+pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
+pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
+														finishing_time */
+char consumer_x[DIM_NAME];/** name of the consumer */
+struct response_task pt[500]; /** circular array for
+								* recording processing times */
 int next;/** index circular array */
 
-pthread_barrier_t barr;
 
 /** @brief calculates response time in ms */
 
-long int calculate_rt(struct timespec *ta, struct timespec *tf)
+long int calculate_pt(struct timespec *ta, struct timespec *tf)
 {
 	long int at, ft;
 
@@ -33,17 +34,32 @@ long int calculate_rt(struct timespec *ta, struct timespec *tf)
 	return (ft - at);
 }
 
-//unsigned int C[]; /** It contains runtime for each task */
-//unsigned int D[]; /** It contains deadline for each task(equal server deadline) */
-//unsigned int T[]; /** It contains period for each server */
-//task_attr *tk; // pointer to the array of task_attr
+/** add ms to the specific destination */
+void time_add_ms(struct timespec *dst, long int ms)
+{
+	dst->tv_sec += ms/1000;
+	dst->tv_nsec += (ms % 1000) * 1e6;
+
+	if (dst->tv_nsec > 1e9) {
+		dst->tv_nsec -= 1e9;
+		dst->tv_sec++;
+	}
+}
+
+/*
+ * Copies the second passed time to the first one
+ */
+void time_copy(struct timespec *dst, const struct timespec *src)
+{
+  dst->tv_sec = src->tv_sec;
+  dst->tv_nsec = src->tv_nsec;
+}
 
 /** @brief generates a configuration for scheduling
  *
  *  generating a configuration for N tasks:
  *	- generates utilization factor for each task i Ui = 0.95/N
  *  - establishing server period and deadline
- *  - calculating budget for each task
  * */
 
 void generate_conf()
@@ -79,9 +95,7 @@ size_t hash(char const *input) {
 void *thread_main(void *arg)
 {
 	int i, fd; /* count variable and descriptor */
-	char *myfifo = (char *)arg; /* name of named pipe */
 	char *buffer;  /* buffer for data */
-	struct timespec tf;/* arrival and finishing time struct */
 	message_t mess;
 
 	while( LOOP ){
@@ -90,25 +104,26 @@ void *thread_main(void *arg)
 		pthread_mutex_lock(&mux_np);
 
 		/* reading size data to be received */
-		mkfifo(myfifo, 0666);
-		fd = open(myfifo, O_RDONLY);
+		mkfifo(arg, 0666);
+		fd = open(arg, O_RDONLY);
 		read(fd, &mess, sizeof(message_t));
 
 		/* copying arrival tyme in rt */
-		time_copy(&rt[next].arrival_time, &mess.arrival_time);
+		time_copy(&pt[next].arrival_time, &mess.arrival_time);
 
-		printf("#Starting job %s\n", consumer_i);
-	//	printf("%ld.%ld\n",mess.arrival_time.tv_sec,mess.arrival_time.tv_nsec);
+		printf("#Starting job %s\n", consumer_x);
+
 		/* allocating memory for size byte */
 		buffer = (char *)malloc(mess.size);
 
 		/* reading data */
 		read(fd, buffer, mess.size);
 		close(fd);
-		unlink(myfifo);
+		unlink(arg);
 
 		printf("%s\n", buffer);
 
+		/* exit critical section for named pipe*/
 		pthread_mutex_unlock(&mux_np);
 
 		/* elaborating data */
@@ -118,22 +133,19 @@ void *thread_main(void *arg)
 		/* enter to critical section to protect struct for finishing_time */
 		pthread_mutex_lock(&mux_ft);
 
-		printf("#Finished job %s\n\n", consumer_i);
+		printf("#Finished job %s\n\n", consumer_x);
 		free(buffer);
 
-		clock_gettime(CLOCK_MONOTONIC, &tf);
-		time_copy(&rt[next].finishing_time, &tf);
-
-		rt[next].tid = gettid();
-
+		/* saving finishing time,tid and update index array */
+		clock_gettime(CLOCK_MONOTONIC, &pt[next].finishing_time);
+		pt[next].tid = gettid();
 		if(next == 499)
 			next = 0;
 		else
 			next++;
-
+		/* exit critical section for finishing_time */
 		pthread_mutex_unlock(&mux_ft);
 
-	//	pthread_barrier_wait(&barr);
 	}
 
 	pthread_exit(0);
@@ -148,7 +160,7 @@ void set_cpu_thread(pthread_t thread,char *consumer)
 	cpu_set_t bitmap;
 
 	CPU_ZERO(&bitmap);
-	if(!strcmp(consumer_i,"consumer1"))
+	if(!strncmp(consumer_x, "consumer1", DIM_NAME))
 		CPU_SET(2, &bitmap);
 	else
 		CPU_SET(3, &bitmap);
@@ -162,23 +174,23 @@ void set_cpu_thread(pthread_t thread,char *consumer)
 void *dummy_main(void *arg)
 {
 	int i;
-	int period = 30000; /* dummy is a task periodic */
+	int period = 20000; /* dummy is a task periodic */
 	struct timespec t;
-	long int response_t;  /* response time */
+	long int processing_t;  /* processing time */
 
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
 
-		printf("#Report Dummy task %s\n", consumer_i);
+		printf("#Report Dummy task %s\n", consumer_x);
 
 		for(i = 0; i < 500; i++){
-			if( rt[i].tid > 0 ){
-				response_t = calculate_rt(&rt[i].arrival_time,
-										  &rt[i].finishing_time);
-				printf("Response time Thread[%d]: ", rt[i].tid);
-				printf("%ld ms\n", response_t);
-				rt[i].tid = 0;
+			if( pt[i].tid > 0 ){
+				processing_t = calculate_pt(&pt[i].arrival_time,
+										    &pt[i].finishing_time);
+				printf("Processing time Thread[%ld]: ", pt[i].tid);
+				printf("%ld ms\n", processing_t);
+				pt[i].tid = 0;
 			}
 		}
 		printf("\n");
@@ -198,7 +210,7 @@ void *dummy_main(void *arg)
 
 int who_am_i()
 {
-	if( strcmp(consumer_i, "consumer1") == 0 )
+	if( strncmp(consumer_x, "consumer1", DIM_NAME) == 0 )
 		return 0;
 	else
 		return 1;
@@ -210,7 +222,7 @@ void change_terminal()
 {
 	int fd;
 	char *myfifo = "/tmp/myfifo3"; /* my_fifo */
-	char buf[15]; /* buffer */
+	char path[14]; /* buffer /dev/pts/xxxx */
 	char signal[6] = "start";
     char *myfifo_c = "/tmp/myfifo4";
 
@@ -219,12 +231,12 @@ void change_terminal()
 	/* reading path new terminal */
 	mkfifo(myfifo, 0666);
     fd = open(myfifo, O_RDONLY);
-    read(fd, buf, 15);
+    read(fd, path, 15);
     close(fd);
     unlink(myfifo);
 
     /* associating new output to the process */
-    freopen(buf, "a", stdout);
+    freopen(path, "a", stdout);
 
     /* sending signal to consumer1*/
     fd = open(myfifo_c, O_WRONLY);
@@ -260,7 +272,7 @@ int main(int argc, char *argv[])
 	pthread_t *t_list;
 
 	/* to understand who's the process */
-	strcpy(consumer_i, argv[0]);
+	strncpy(consumer_x, argv[0], DIM_NAME);
 
 	/* if consumer2 change output to new terminal */
 	if( who_am_i() == 1 )
@@ -268,11 +280,10 @@ int main(int argc, char *argv[])
 	else
 		wait_consumer2();
 
-	printf("#Created %s\n", consumer_i);
+	printf("#Created %s\n", consumer_x);
 
 	ntask = 10;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
-	pthread_barrier_init(&barr, NULL, 10);
 
 	/* generating (ntask+1) thread */
 	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
@@ -291,7 +302,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		/* allocating cpu-unit for each thread */
-		set_cpu_thread(t_list[i], consumer_i);
+		set_cpu_thread(t_list[i], consumer_x);
 	}
 
 	/* process father waits the end of threads */
