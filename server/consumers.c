@@ -12,7 +12,8 @@
 #include <pthread.h>
 #define LOOP 1
 
-pthread_mutex_t mux = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER;
 char consumer_i[10];/** name of the consumer */
 
 struct response_task rt[500]; /** circular array for recording response times */
@@ -79,40 +80,43 @@ void *thread_main(void *arg)
 {
 	int i, fd; /* count variable and descriptor */
 	char *myfifo = (char *)arg; /* name of named pipe */
-	unsigned char size; /* size data to read*/
 	char *buffer;  /* buffer for data */
-	char buff_size[4]; /* to receive size */
-	struct timespec ta, tf;/* arrival and finishing time struct */
+	struct timespec tf;/* arrival and finishing time struct */
+	message_t mess;
 
 	while( LOOP ){
 
-		/* taking arrival time */
-		clock_gettime(CLOCK_MONOTONIC, &ta);
-
-		/* enter to critical section */
-		pthread_mutex_lock(&mux);
-
-		time_copy(&rt[next].arrival_time, &ta);
+		/* enter to critical section to protect named pipe */
+		pthread_mutex_lock(&mux_np);
 
 		/* reading size data to be received */
 		mkfifo(myfifo, 0666);
 		fd = open(myfifo, O_RDONLY);
-		read(fd, buff_size, 4);
-		size = atoi(buff_size);
+		read(fd, &mess, sizeof(message_t));
+
+		/* copying arrival tyme in rt */
+		time_copy(&rt[next].arrival_time, &mess.arrival_time);
 
 		printf("#Starting job %s\n", consumer_i);
-
+	//	printf("%ld.%ld\n",mess.arrival_time.tv_sec,mess.arrival_time.tv_nsec);
 		/* allocating memory for size byte */
-		buffer = (char *)malloc(size);
+		buffer = (char *)malloc(mess.size);
 
 		/* reading data */
-		read(fd, buffer, size);
+		read(fd, buffer, mess.size);
 		close(fd);
 		unlink(myfifo);
 
 		printf("%s\n", buffer);
-		for(i = 0; i < 10; i++)
+
+		pthread_mutex_unlock(&mux_np);
+
+		/* elaborating data */
+		for(i = 0; i < 10000; i++)
 			hash(buffer);
+
+		/* enter to critical section to protect struct for finishing_time */
+		pthread_mutex_lock(&mux_ft);
 
 		printf("#Finished job %s\n\n", consumer_i);
 		free(buffer);
@@ -127,9 +131,9 @@ void *thread_main(void *arg)
 		else
 			next++;
 
-		pthread_mutex_unlock(&mux);
+		pthread_mutex_unlock(&mux_ft);
 
-		pthread_barrier_wait(&barr);
+	//	pthread_barrier_wait(&barr);
 	}
 
 	pthread_exit(0);

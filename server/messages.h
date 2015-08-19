@@ -11,9 +11,9 @@ enum msg_type { TYPE1, TYPE2 };
  * */
 
 typedef struct message_t_ {
-	char *payload;       /* content of the message */
 	enum msg_type type; /** type of the message */
-
+	unsigned char size; /** size of payload */
+	struct timespec arrival_time; /** arrival time packet to server */
 } message_t;
 
 

@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 {
 	struct timespec t;
 	int period = 1250; /** generator is a process periodic */
-	unsigned char size;
+	char *payload;
 	message_t mess; /** message to be delivered */
 
 	// init: taking cpu
@@ -27,19 +27,23 @@ int main(int argc, char *argv[])
 	while( LOOP ){
 
 		// creating message
-		size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 8; // dim between 8 & DIM_MAX
-		generate_message(&mess, size);
+		generate_message(&mess);
+
+		// generating payload
+		payload = (char *) malloc(mess.size);
+		generate_payload(payload, mess.size); // random payload
 
 		// forwarding
-		send_pkt(&mess, size);
+		send_pkt(&mess, payload);
 
 		// free payload for next packet
-		free(mess.payload);
+		free(payload);
 
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &t, NULL);
 		time_add_ms(&t, period);
+
 
 	}
 

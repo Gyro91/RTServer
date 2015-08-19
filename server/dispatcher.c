@@ -50,13 +50,13 @@ void handle_error_recv(int ret)
 	}
 }
 
-void write_pipe(char *myfifo, char *buffer, char *size_f, int size)
+void write_pipe(char *myfifo, char *buffer, message_t *mess)
 {
 	int fd;
 
 	fd = open(myfifo, O_WRONLY);
-	write(fd, size_f, 4); /* sending size via IPC */
-	write(fd, buffer, size); /* sendig message via IPC */
+	write(fd, mess, sizeof(message_t)); /* sending mess via IPC */
+	write(fd, buffer, mess->size); /* sending payload via IPC */
 	close(fd);
 
 }
@@ -70,36 +70,32 @@ void write_pipe(char *myfifo, char *buffer, char *size_f, int size)
 
 int receive_dispatch_pkt()
 {
-	int ret, type;
-	unsigned char size;
+	int ret;
+	message_t mess;
 	char *buffer;
-	char size_f[4];
 
-	ret = recv(cn_sk, (void *)&size, 1, 0); /* receiving size */
+	ret = recv(cn_sk, (void *)&mess, sizeof(mess), MSG_WAITALL); /* receiving struct*/
 	handle_error_recv(ret);
 
 	if( status_c ){
-		buffer = (char *)malloc(size);
-		ret = recv(cn_sk, (void *)buffer, size, MSG_WAITALL); /* receive message */
+		buffer = (char *)malloc(mess.size);
+		ret = recv(cn_sk, buffer, mess.size, MSG_WAITALL); /* receive message */
 		handle_error_recv(ret);
 
-		type = ( buffer[size - 2] == '0' ) ? 0 : 1; /* taking type */
-		buffer[size - 2] = '\0'; /* eliminating type from message */
-		size = size - 1;
-
-		sprintf(size_f, "%d", size);
+		/* taking arrival time */
+		clock_gettime(CLOCK_MONOTONIC, &mess.arrival_time);
 
 		/* if type1 sending to consumer 1,
 		 * otherwise sending to consumer2 */
-		if( !type )
-			write_pipe(myfifo1, buffer, size_f, size);
+		if( !mess.type )
+			write_pipe(myfifo1, buffer, &mess);
 		else
-			write_pipe(myfifo2, buffer, size_f, size);
+			write_pipe(myfifo2, buffer, &mess);
 
 		free(buffer);
 	}
 
-	return size;
+	return mess.size;
 
 }
 

@@ -105,46 +105,35 @@ void generate_payload(char *payload, unsigned char size)
 }
 
 /** @brief generate a message
- *	@param mess struct to contain mess
- *	@param pay is the payload of the message
+ *
  */
-// must be modified (message_t,size)
-void generate_message(message_t *mess, unsigned char size)
-{
-	mess->payload = (char *) malloc(size); // allocating memory for size bytes
-	generate_payload(mess->payload,size); // random payload
 
+void generate_message(message_t *mess)
+{
 	mess->type = draw_message(); // random type
+	mess->size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 8; // dim between 8 & DIM_MAX
+
 }
 
 /** @brief send a packet to the  server
- *  @param mess message to be delivered
- *  @param size dimension of the content(payload)
+ *  @param mess message contains info to be delivered
+ *  @param payload is the content of the message
  */
-void send_pkt(message_t *mess,unsigned char size)
+void send_pkt(message_t *mess, char *payload)
 {
 	int ret;
-	char *buffer;
 
-	buffer = (char *)malloc(size + 1);
-	strcpy(buffer,mess->payload);
-	if( mess->type )
-		strcat(buffer,"1");
-	else
-		strcat(buffer,"0");
+	printf("Type: %d\nPayload: %s\n\n", mess->type, payload);
 
-	size = size + 1;
-
-	printf("%s\n", buffer);
-	// send dimension
-	ret = send(sk,(void *)&size,1,0);
+	// send struct
+	ret = send(sk, (void *)mess, sizeof(message_t), 0);
 	if( ret < 0 )
-		Error_("Error send dimension");
+		Error_("Error send message");
 
 	// send message
-	ret = send(sk,(void *)buffer,size,0);
+	ret = send(sk, (void *)payload, mess->size, 0);
 	if( ret < 0 )
-		Error_("Error send message!");
+		Error_("Error send payload!");
 
 	/*
 	int i;
@@ -154,7 +143,7 @@ void send_pkt(message_t *mess,unsigned char size)
 			Error_("Error send message");
 	}
 	*/
-	free(buffer);
+
 }
 
 /** add ms to the specific destination */
