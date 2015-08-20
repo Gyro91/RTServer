@@ -164,13 +164,13 @@ int main(int argc, char *argv[])
 /* TEST CPU
    cpu_set_t bitmap;
 
-   sched_getaffinity(0,sizeof(bitmap), &bitmap);
-   if( CPU_COUNT(&bitmap) == 1 )
-    	printf("test1 ok dispatcher\n");
-   if( CPU_ISSET(3, &bitmap) != 0  )
-		printf("test2 ok dispatcher\n");
-   else
-		printf("test failed dispatcher \n");
+	sched_getaffinity(0,sizeof(bitmap), &bitmap);
+	if( CPU_COUNT(&bitmap) == 1 )
+		printf("test1 ok\n");
+	if( CPU_ISSET(1, &bitmap) != 0  )
+		printf("test2 ok\n");
+	else
+		printf("test failed\n");
 */
 	// setup for a connection TCP
 	setup_TCP_server();

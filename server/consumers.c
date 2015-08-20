@@ -6,10 +6,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "consumers.h"
+
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
+
 #include <pthread.h>
+
 #define LOOP 1
 #define DIM_NAME 10
 
@@ -68,14 +71,14 @@ void set_scheduler()
 	struct sched_attr attr;
 
 	attr.size = sizeof(attr);
-    attr.sched_flags = 0;
+	attr.sched_flags = 0;
 	attr.sched_nice = 0;
 //	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
 	attr.sched_runtime = 10 * 1000 * 1000;
 	attr.sched_period = attr.sched_deadline = 30 * 1000 * 1000;
-
+	
 	r = sched_setattr(0, &attr, 0);
 	printf("%d\n",r);
 	if (r < 0) {
@@ -117,19 +120,15 @@ size_t hash(char const *input) {
 	return ret;
 }
 
-void set_cpu_thread_()
+/** sets CPU-2 to thread with tid thread if consumer is 1
+ * 	otherwise sets CPU-3 to consumer2
+ */
+
+void set_cpu_thread(int cpu)
 {
-	cpu_set_t bitmap;
-
-	CPU_ZERO(&bitmap);
-	if(!strcmp(consumer_x, "consumer1"))
-		CPU_SET(2, &bitmap);
-	else
-		CPU_SET(3, &bitmap);
-
-	sched_setaffinity(gettid(), sizeof(bitmap), &bitmap);
-
+	
 }
+
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
  * - reads size of the message
@@ -145,10 +144,10 @@ void *thread_main(void *arg)
 	int i, fd; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
-
-	set_cpu_thread_();
+	
+	/* allocating cpu-unit for each thread */
+	set_cpu_thread(1);
 	set_scheduler();
-
 	while( LOOP ){
 
 
@@ -201,24 +200,6 @@ void *thread_main(void *arg)
 	}
 
 	pthread_exit(0);
-}
-
-/** sets CPU-2 to thread with tid thread if consumer is 1
- * 	otherwise sets CPU-3 to consumer2
- */
-
-void set_cpu_thread(pthread_t thread,char *consumer)
-{
-	cpu_set_t bitmap;
-
-	CPU_ZERO(&bitmap);
-	if(!strcmp(consumer_x, "consumer1"))
-		CPU_SET(2, &bitmap);
-	else
-		CPU_SET(3, &bitmap);
-
-	pthread_setaffinity_np(thread,sizeof(bitmap), &bitmap);
-
 }
 
 /** body of dummy task.It's the task for calculating response time */
@@ -317,12 +298,55 @@ void wait_consumer2()
 
 }
 
+void set_affinity(char * consumer_x)
+{
+	FILE * f;
+	char cpuset_folder[100];
+	char cpuset_file[100];
+	
+	if (!strcmp(consumer_x, "consumer1"))
+		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_1");
+	else
+		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_2");
+	
+	printf("#Creating folder \"%s\"\n", cpuset_folder);
+	rmdir(cpuset_folder);
+	if (mkdir(cpuset_folder, S_IRWXU)) {
+		pthread_mutex_lock(&console_mux);	    
+		printf("Error creating CPUSET folder\n");
+		pthread_mutex_unlock(&console_mux);
+		pthread_exit(NULL);
+	}
+	
+	strcpy(cpuset_file, cpuset_folder);
+	strcat(cpuset_file, "/cpuset.mems");
+	f = fopen(cpuset_file, "w");
+	if (f == NULL) {
+		printf("Error opening file \"%s\"\n", cpuset_file);
+		exit(1);
+	}
+	fprintf(f, "0");
+	fclose(f);
+	
+	strcpy(cpuset_file, cpuset_folder);
+	strcat(cpuset_file, "/cpuset.cpus");
+	f = fopen(cpuset_file, "w");
+	if (f == NULL) {
+		printf("Error opening file \"%s\"\n", cpuset_file);
+		exit(1);
+	}
+	if (!strcmp(consumer_x, "consumer1"))
+		fprintf(f, "2");
+	else
+		fprintf(f, "3");
+	fclose(f);
+}
 
 int main(int argc, char *argv[])
 {
 	int i, ntask, ret, status;
 	pthread_t *t_list;
-
+	
 	/* to understand who's the process */
 	strcpy(consumer_x, argv[0]);
 
@@ -334,8 +358,10 @@ int main(int argc, char *argv[])
 		wait_consumer2();
 */
 	printf("#Created %s\n", consumer_x);
-
-	ntask = 5;//atoi(argv[1]); /* number of task to be created */
+	
+	
+	
+	ntask = 2;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
@@ -354,8 +380,6 @@ int main(int argc, char *argv[])
 			printf("Error pthread_create()\n");
 			exit(1);
 		}
-		/* allocating cpu-unit for each thread */
-		//set_cpu_thread(t_list[i], consumer_x);
 	}
 
 	/* process father waits the end of threads */
