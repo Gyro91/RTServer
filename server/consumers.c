@@ -77,7 +77,7 @@ void set_scheduler()
 
 	attr.sched_policy = SCHED_DEADLINE;
 	attr.sched_runtime = 10 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 30 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
 	
 	r = sched_setattr(0, &attr, 0);
 	printf("%d\n",r);
@@ -91,6 +91,30 @@ void set_scheduler()
 	    pthread_mutex_unlock(&console_mux);
 	    pthread_exit(NULL);
 	  }
+}
+
+void set_affinity()
+{
+	FILE * f;
+	char cpuset_file[100];
+	
+	// Creates the folders for the cpuset
+	
+	if (!strcmp(consumer_x, "consumer1"))
+		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_1");
+	else
+		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_2");
+	
+	strcat(cpuset_file, "/tasks");
+	f = fopen(cpuset_file, "w");
+	if (f == NULL) {
+		printf("Error opening file \"%s\"\n", cpuset_file);
+		exit(1);
+	}
+	printf("Setting affinity to %ld\n", gettid());
+	fprintf(f, "%ld\n", gettid());
+	
+	fclose(f);
 }
 
 /** @brief generates a configuration for scheduling
@@ -120,15 +144,6 @@ size_t hash(char const *input) {
 	return ret;
 }
 
-/** sets CPU-2 to thread with tid thread if consumer is 1
- * 	otherwise sets CPU-3 to consumer2
- */
-
-void set_cpu_thread(int cpu)
-{
-	
-}
-
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
  * - reads size of the message
@@ -145,9 +160,9 @@ void *thread_main(void *arg)
 	char *buffer;  /* buffer for data */
 	message_t mess;
 	
-	/* allocating cpu-unit for each thread */
-	set_cpu_thread(1);
 	set_scheduler();
+	set_affinity();
+	
 	while( LOOP ){
 
 
@@ -298,11 +313,13 @@ void wait_consumer2()
 
 }
 
-void set_affinity(char * consumer_x)
+void setup_affinity_folder(char * consumer_x)
 {
 	FILE * f;
 	char cpuset_folder[100];
 	char cpuset_file[100];
+	
+	// Creates the folders for the cpuset
 	
 	if (!strcmp(consumer_x, "consumer1"))
 		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_1");
@@ -318,6 +335,8 @@ void set_affinity(char * consumer_x)
 		pthread_exit(NULL);
 	}
 	
+	// Updates the memory node
+	
 	strcpy(cpuset_file, cpuset_folder);
 	strcat(cpuset_file, "/cpuset.mems");
 	f = fopen(cpuset_file, "w");
@@ -327,6 +346,8 @@ void set_affinity(char * consumer_x)
 	}
 	fprintf(f, "0");
 	fclose(f);
+	
+	// Sets which CPU will be used by the consumers
 	
 	strcpy(cpuset_file, cpuset_folder);
 	strcat(cpuset_file, "/cpuset.cpus");
@@ -339,6 +360,7 @@ void set_affinity(char * consumer_x)
 		fprintf(f, "2");
 	else
 		fprintf(f, "3");
+	
 	fclose(f);
 }
 
@@ -359,9 +381,9 @@ int main(int argc, char *argv[])
 */
 	printf("#Created %s\n", consumer_x);
 	
+	setup_affinity_folder(consumer_x);
 	
-	
-	ntask = 2;//atoi(argv[1]); /* number of task to be created */
+	ntask = 1;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
