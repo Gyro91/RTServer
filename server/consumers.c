@@ -117,6 +117,19 @@ size_t hash(char const *input) {
 	return ret;
 }
 
+void set_cpu_thread_()
+{
+	cpu_set_t bitmap;
+
+	CPU_ZERO(&bitmap);
+	if(!strcmp(consumer_x, "consumer1"))
+		CPU_SET(2, &bitmap);
+	else
+		CPU_SET(3, &bitmap);
+
+	sched_setaffinity(gettid(), sizeof(bitmap), &bitmap);
+
+}
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
  * - reads size of the message
@@ -132,7 +145,10 @@ void *thread_main(void *arg)
 	int i, fd; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
+
+	set_cpu_thread_();
 	set_scheduler();
+
 	while( LOOP ){
 
 
@@ -319,7 +335,7 @@ int main(int argc, char *argv[])
 */
 	printf("#Created %s\n", consumer_x);
 
-	ntask = 1;//atoi(argv[1]); /* number of task to be created */
+	ntask = 5;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
@@ -339,7 +355,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		/* allocating cpu-unit for each thread */
-		set_cpu_thread(t_list[i], consumer_x);
+		//set_cpu_thread(t_list[i], consumer_x);
 	}
 
 	/* process father waits the end of threads */

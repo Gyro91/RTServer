@@ -26,7 +26,7 @@ void set_cpu(int pid1, int pid2 , int pid3)
 	CPU_ZERO(&bitmap); // resetting bitmap
 	CPU_SET(3, &bitmap); // setting bitmap to 3
 
-	sched_setaffinity(pid2, sizeof(bitmap), &bitmap); /* pid3 takes cpu3*/
+	sched_setaffinity(pid3, sizeof(bitmap), &bitmap); /* pid3 takes cpu3*/
 
 }
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 				/* father assigns cpu to dispatcher
 				* and consumers,then suspends
 				*/
-				//set_cpu(pid_d, pid_c1, pid_c2);
+				set_cpu(pid_d, pid_c1, pid_c2);
 				wait(&status);
 			}
 
