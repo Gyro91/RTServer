@@ -16,10 +16,14 @@
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
 pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
 														finishing_time */
+pthread_mutex_t console_mux; /* mutex for console video */
+
 char consumer_x[DIM_NAME];/** name of the consumer */
-struct response_task pt[500]; /** circular array for
+struct processing_task pt[500]; /** circular array for
 								* recording processing times */
 int next;/** index circular array */
+
+
 
 
 /** @brief calculates response time in ms */
@@ -53,6 +57,37 @@ void time_copy(struct timespec *dst, const struct timespec *src)
 {
   dst->tv_sec = src->tv_sec;
   dst->tv_nsec = src->tv_nsec;
+}
+
+
+/** changes scheduler */
+
+void set_scheduler()
+{
+	int r;
+	struct sched_attr attr;
+
+	attr.size = sizeof(attr);
+    attr.sched_flags = 0;
+	attr.sched_nice = 0;
+//	attr.sched_priority = 0;
+
+	attr.sched_policy = SCHED_DEADLINE;
+	attr.sched_runtime = 10 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 30 * 1000 * 1000;
+
+	r = sched_setattr(0, &attr, 0);
+	printf("%d\n",r);
+	if (r < 0) {
+		pthread_mutex_lock(&console_mux);
+	    perror("ERROR: sched_setattr");
+	    printf("runtime: %lld\nperiod: %lld\ndeadline: %lld\n",
+	           attr.sched_runtime,
+	           attr.sched_period,
+	           attr.sched_deadline);
+	    pthread_mutex_unlock(&console_mux);
+	    pthread_exit(NULL);
+	  }
 }
 
 /** @brief generates a configuration for scheduling
@@ -97,8 +132,9 @@ void *thread_main(void *arg)
 	int i, fd; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
-
+	set_scheduler();
 	while( LOOP ){
+
 
 		/* enter to critical section to protect named pipe */
 		pthread_mutex_lock(&mux_np);
@@ -160,7 +196,7 @@ void set_cpu_thread(pthread_t thread,char *consumer)
 	cpu_set_t bitmap;
 
 	CPU_ZERO(&bitmap);
-	if(!strncmp(consumer_x, "consumer1", DIM_NAME))
+	if(!strcmp(consumer_x, "consumer1"))
 		CPU_SET(2, &bitmap);
 	else
 		CPU_SET(3, &bitmap);
@@ -210,7 +246,7 @@ void *dummy_main(void *arg)
 
 int who_am_i()
 {
-	if( strncmp(consumer_x, "consumer1", DIM_NAME) == 0 )
+	if( strcmp(consumer_x, "consumer1") == 0 )
 		return 0;
 	else
 		return 1;
@@ -252,7 +288,7 @@ void wait_consumer2()
 	char *myfifo = "/tmp/myfifo4"; /* my_fifo */
 	char buf[15]; /* buffer */
 
-	while( 1 ){
+	while( LOOP ){
 		mkfifo(myfifo, 0666);
 		fd = open(myfifo, O_RDONLY);
 		read(fd, buf, 6); /* reading path new terminal */
@@ -272,17 +308,18 @@ int main(int argc, char *argv[])
 	pthread_t *t_list;
 
 	/* to understand who's the process */
-	strncpy(consumer_x, argv[0], DIM_NAME);
+	strcpy(consumer_x, argv[0]);
 
 	/* if consumer2 change output to new terminal */
+/*
 	if( who_am_i() == 1 )
 		change_terminal();
 	else
 		wait_consumer2();
-
+*/
 	printf("#Created %s\n", consumer_x);
 
-	ntask = 10;//atoi(argv[1]); /* number of task to be created */
+	ntask = 1;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
