@@ -166,9 +166,9 @@ int main(int argc, char *argv[])
 
 	sched_getaffinity(0,sizeof(bitmap), &bitmap);
 	if( CPU_COUNT(&bitmap) == 1 )
-		printf("test1 ok\n");
+		printf("test1 dispatcher ok\n");
 	if( CPU_ISSET(1, &bitmap) != 0  )
-		printf("test2 ok\n");
+		printf("test2 dispatcher ok\n");
 	else
 		printf("test failed\n");
 */

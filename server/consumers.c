@@ -80,7 +80,6 @@ void set_scheduler()
 	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
 	
 	r = sched_setattr(0, &attr, 0);
-	printf("%d\n",r);
 	if (r < 0) {
 		pthread_mutex_lock(&console_mux);
 	    perror("ERROR: sched_setattr");
@@ -111,7 +110,7 @@ void set_affinity()
 		printf("Error opening file \"%s\"\n", cpuset_file);
 		exit(1);
 	}
-	printf("Setting affinity to %ld\n", gettid());
+	printf("#Setting affinity to %ld\n", gettid());
 	fprintf(f, "%ld\n", gettid());
 	
 	fclose(f);
@@ -162,7 +161,7 @@ void *thread_main(void *arg)
 	
 	set_scheduler();
 	set_affinity();
-	
+
 	while( LOOP ){
 
 
@@ -373,12 +372,12 @@ int main(int argc, char *argv[])
 	strcpy(consumer_x, argv[0]);
 
 	/* if consumer2 change output to new terminal */
-/*
+
 	if( who_am_i() == 1 )
 		change_terminal();
 	else
 		wait_consumer2();
-*/
+
 	printf("#Created %s\n", consumer_x);
 	
 	setup_affinity_folder(consumer_x);
