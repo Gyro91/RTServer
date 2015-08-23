@@ -29,14 +29,14 @@ int next;/** index circular array */
 
 
 
-/** @brief calculates response time in ms */
+/** @brief calculates response time in ns */
 
 long int calculate_pt(struct timespec *ta, struct timespec *tf)
 {
 	long int at, ft;
 
-	at = (ta->tv_sec * 1000) + (ta->tv_nsec / 1000000);
-	ft = (tf->tv_sec * 1000) + (tf->tv_nsec / 1000000);
+	at = (ta->tv_sec * 1000 * 1000 * 1000) + (ta->tv_nsec);
+	ft = (tf->tv_sec * 1000 * 1000 * 1000) + (tf->tv_nsec);
 
 	return (ft - at);
 }
@@ -76,7 +76,7 @@ void set_scheduler()
 //	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 10 * 1000 * 1000;
+	attr.sched_runtime = 5 * 1000 * 1000;
 	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
 	
 	r = sched_setattr(0, &attr, 0);
@@ -92,41 +92,22 @@ void set_scheduler()
 	  }
 }
 
+
 void set_affinity()
 {
-	FILE * f;
-	char cpuset_file[100];
-	
-	// Creates the folders for the cpuset
-	
-	if (!strcmp(consumer_x, "consumer1"))
-		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_1");
+	cpu_set_t bitmap;
+
+	CPU_ZERO(&bitmap);
+
+	if(!strcmp(consumer_x, "consumer1"))
+		CPU_SET(2, &bitmap);
 	else
-		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_2");
-	
-	strcat(cpuset_file, "/tasks");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	printf("#Setting affinity to %ld\n", gettid());
-	fprintf(f, "%ld\n", gettid());
-	
-	fclose(f);
-}
+		CPU_SET(3, &bitmap);
 
-/** @brief generates a configuration for scheduling
- *
- *  generating a configuration for N tasks:
- *	- generates utilization factor for each task i Ui = 0.95/N
- *  - establishing server period and deadline
- * */
-
-void generate_conf()
-{
+	sched_setaffinity(gettid(), sizeof(bitmap), &bitmap);
 
 }
+
 
 /** Every task does several hash for each string received */
 
@@ -143,6 +124,23 @@ size_t hash(char const *input) {
 	return ret;
 }
 
+void test_affinity(){
+	cpu_set_t bitmap;
+
+	sched_getaffinity(gettid(),sizeof(bitmap), &bitmap);
+
+	if( CPU_COUNT(&bitmap) == 1 ){
+		printf("test1  ok %s\n",consumer_x);
+
+		if( CPU_ISSET(3, &bitmap) != 0  )
+			printf("test2  ok %s\n",consumer_x);
+		else
+			printf("test failed\n");
+	}
+	else
+		printf("test failed\n");
+
+}
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
  * - reads size of the message
@@ -161,7 +159,7 @@ void *thread_main(void *arg)
 	
 	set_scheduler();
 	set_affinity();
-
+	test_affinity();
 	while( LOOP ){
 
 
@@ -225,6 +223,8 @@ void *dummy_main(void *arg)
 	struct timespec t;
 	long int processing_t;  /* processing time */
 
+//	freopen("out.txt", "a", stdout);
+
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
@@ -236,7 +236,7 @@ void *dummy_main(void *arg)
 				processing_t = calculate_pt(&pt[i].arrival_time,
 										    &pt[i].finishing_time);
 				printf("Processing time Thread[%ld]: ", pt[i].tid);
-				printf("%ld ms\n", processing_t);
+				printf("%ld ns\n", processing_t);
 				pt[i].tid = 0;
 			}
 		}
@@ -312,57 +312,6 @@ void wait_consumer2()
 
 }
 
-void setup_affinity_folder(char * consumer_x)
-{
-	FILE * f;
-	char cpuset_folder[100];
-	char cpuset_file[100];
-	
-	// Creates the folders for the cpuset
-	
-	if (!strcmp(consumer_x, "consumer1"))
-		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_1");
-	else
-		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_2");
-	
-	printf("#Creating folder \"%s\"\n", cpuset_folder);
-	rmdir(cpuset_folder);
-	if (mkdir(cpuset_folder, S_IRWXU)) {
-		pthread_mutex_lock(&console_mux);	    
-		printf("Error creating CPUSET folder\n");
-		pthread_mutex_unlock(&console_mux);
-		pthread_exit(NULL);
-	}
-	
-	// Updates the memory node
-	
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.mems");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	fprintf(f, "0");
-	fclose(f);
-	
-	// Sets which CPU will be used by the consumers
-	
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.cpus");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	if (!strcmp(consumer_x, "consumer1"))
-		fprintf(f, "2");
-	else
-		fprintf(f, "3");
-	
-	fclose(f);
-}
-
 int main(int argc, char *argv[])
 {
 	int i, ntask, ret, status;
@@ -372,17 +321,15 @@ int main(int argc, char *argv[])
 	strcpy(consumer_x, argv[0]);
 
 	/* if consumer2 change output to new terminal */
-
+/*
 	if( who_am_i() == 1 )
 		change_terminal();
 	else
 		wait_consumer2();
-
+*/
 	printf("#Created %s\n", consumer_x);
-	
-	setup_affinity_folder(consumer_x);
-	
-	ntask = 1;//atoi(argv[1]); /* number of task to be created */
+
+	ntask = 5;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
