@@ -15,6 +15,7 @@
 
 #define LOOP 1
 #define DIM_NAME 10
+#define __sched_priority sched_priority
 
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
 pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
@@ -28,41 +29,6 @@ int next;/** index circular array */
 
 
 
-
-/** @brief calculates response time in ms */
-
-long int calculate_pt(struct timespec *ta, struct timespec *tf)
-{
-	long int at, ft;
-
-	at = (ta->tv_sec * 1000) + (ta->tv_nsec / 1000000);
-	ft = (tf->tv_sec * 1000) + (tf->tv_nsec / 1000000);
-
-	return (ft - at);
-}
-
-/** add ms to the specific destination */
-void time_add_ms(struct timespec *dst, long int ms)
-{
-	dst->tv_sec += ms/1000;
-	dst->tv_nsec += (ms % 1000) * 1e6;
-
-	if (dst->tv_nsec > 1e9) {
-		dst->tv_nsec -= 1e9;
-		dst->tv_sec++;
-	}
-}
-
-/*
- * Copies the second passed time to the first one
- */
-void time_copy(struct timespec *dst, const struct timespec *src)
-{
-  dst->tv_sec = src->tv_sec;
-  dst->tv_nsec = src->tv_nsec;
-}
-
-
 /** changes scheduler */
 
 void set_scheduler()
@@ -73,7 +39,7 @@ void set_scheduler()
 	attr.size = sizeof(attr);
 	attr.sched_flags = 0;
 	attr.sched_nice = 0;
-//	attr.sched_priority = 0;
+	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
 	attr.sched_runtime = 10 * 1000 * 1000;
@@ -91,6 +57,10 @@ void set_scheduler()
 	    pthread_exit(NULL);
 	  }
 }
+
+
+
+/** sets cpu for the task caller */
 
 void set_affinity()
 {
@@ -116,17 +86,7 @@ void set_affinity()
 	fclose(f);
 }
 
-/** @brief generates a configuration for scheduling
- *
- *  generating a configuration for N tasks:
- *	- generates utilization factor for each task i Ui = 0.95/N
- *  - establishing server period and deadline
- * */
 
-void generate_conf()
-{
-
-}
 
 /** Every task does several hash for each string received */
 
@@ -142,6 +102,8 @@ size_t hash(char const *input) {
 	}
 	return ret;
 }
+
+
 
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
@@ -216,6 +178,8 @@ void *thread_main(void *arg)
 	pthread_exit(0);
 }
 
+
+
 /** body of dummy task.It's the task for calculating response time */
 
 void *dummy_main(void *arg)
@@ -253,6 +217,8 @@ void *dummy_main(void *arg)
 
 }
 
+
+
 /** returns 0 if it's consumer1 else 1 */
 
 int who_am_i()
@@ -262,6 +228,8 @@ int who_am_i()
 	else
 		return 1;
 }
+
+
 
 /** changes output to new terminal */
 
@@ -291,6 +259,8 @@ void change_terminal()
     close(fd);
 }
 
+
+
 /** consumer1 waits consumer2 to change terminal */
 
 void wait_consumer2()
@@ -311,6 +281,10 @@ void wait_consumer2()
 	}
 
 }
+
+
+
+/** It does preliminary operations for set_affinity */
 
 void setup_affinity_folder(char * consumer_x)
 {
@@ -363,6 +337,8 @@ void setup_affinity_folder(char * consumer_x)
 	fclose(f);
 }
 
+
+
 int main(int argc, char *argv[])
 {
 	int i, ntask, ret, status;
@@ -372,17 +348,17 @@ int main(int argc, char *argv[])
 	strcpy(consumer_x, argv[0]);
 
 	/* if consumer2 change output to new terminal */
-
+/*
 	if( who_am_i() == 1 )
 		change_terminal();
 	else
 		wait_consumer2();
-
+*/
 	printf("#Created %s\n", consumer_x);
 	
 	setup_affinity_folder(consumer_x);
 	
-	ntask = 1;//atoi(argv[1]); /* number of task to be created */
+	ntask = 10;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */

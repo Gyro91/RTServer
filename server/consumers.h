@@ -23,18 +23,24 @@
 #define __NR_sched_getattr		381
 #endif
 
+
 /** number of message type  */
+
+
 enum msg_type { TYPE1, TYPE2 };
 
-/**
- * @brief Defines a message format
- * */
+
+/** @brief Defines a message format */
+
 
 typedef struct message_t_ {
 	enum msg_type type; /** type of the message */
 	unsigned char size; /** size of payload */
 	struct timespec arrival_time; /** arrival time packet to server */
 } message_t;
+
+
+/** element for recording processing task */
 
 
 struct processing_task {
@@ -44,7 +50,7 @@ struct processing_task {
 
 };
 
-static volatile int done;
+
 
 struct sched_attr {
 	__u32 size;
@@ -65,16 +71,16 @@ struct sched_attr {
 };
 
 int sched_setattr(pid_t pid,
-				  const struct sched_attr *attr,
-			   	  unsigned int flags)
-{
-	return syscall(__NR_sched_setattr, pid, attr, flags);
-}
+                  const struct sched_attr *attr,
+                  unsigned int flags);
 
 int sched_getattr(pid_t pid,
-				  struct sched_attr *attr,
-		          unsigned int size,
-		          unsigned int flags)
-{
-	return syscall(__NR_sched_getattr, pid, attr, size, flags);
-}
+                  struct sched_attr *attr,
+                  unsigned int size,
+                  unsigned int flags);
+
+void time_add_ms(struct timespec *dst, long int ms);
+
+long int calculate_pt(struct timespec *ta, struct timespec *tf);
+
+void time_copy(struct timespec *dst, const struct timespec *src);
