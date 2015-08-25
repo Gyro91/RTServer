@@ -12,7 +12,7 @@
 #endif
 
 #include <pthread.h>
-
+#define TEST
 #define LOOP 1
 #define DIM_NAME 10
 #define __sched_priority sched_priority
@@ -33,7 +33,7 @@ int next;/** index circular array */
 
 void set_scheduler()
 {
-	int r;
+	int ret;
 	struct sched_attr attr;
 
 	attr.size = sizeof(attr);
@@ -42,11 +42,11 @@ void set_scheduler()
 	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 10 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
+	attr.sched_runtime = 15 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 800 * 1000 * 1000;
 	
-	r = sched_setattr(0, &attr, 0);
-	if (r < 0) {
+	ret = sched_setattr(0, &attr, 0);
+	if (ret < 0) {
 		pthread_mutex_lock(&console_mux);
 	    perror("ERROR: sched_setattr");
 	    printf("runtime: %lld\nperiod: %lld\ndeadline: %lld\n",
@@ -126,53 +126,68 @@ void *thread_main(void *arg)
 
 	while( LOOP ){
 
+		/* Enter to critical section to protect named pipe */
 
-		/* enter to critical section to protect named pipe */
 		pthread_mutex_lock(&mux_np);
 
-		/* reading size data to be received */
+		/* Reading size data to be received */
+
 		mkfifo(arg, 0666);
 		fd = open(arg, O_RDONLY);
 		read(fd, &mess, sizeof(message_t));
 
-		/* copying arrival tyme in rt */
-		time_copy(&pt[next].arrival_time, &mess.arrival_time);
 
+
+        #ifndef TEST
 		printf("#Starting job %s\n", consumer_x);
+        #endif
 
-		/* allocating memory for size byte */
+		/* Allocating memory for size byte */
+
 		buffer = (char *)malloc(mess.size);
 
-		/* reading data */
+		/* Reading data */
+
 		read(fd, buffer, mess.size);
 		close(fd);
 		unlink(arg);
 
-		printf("%s\n", buffer);
 
-		/* exit critical section for named pipe*/
+		/* Exit critical section for named pipe*/
+
 		pthread_mutex_unlock(&mux_np);
 
-		/* elaborating data */
+		/* Elaborating data */
+
 		for(i = 0; i < 10000; i++)
 			hash(buffer);
 
-		/* enter to critical section to protect struct for finishing_time */
+		/* Enter to critical section to protect struct for finishing_time */
+
 		pthread_mutex_lock(&mux_ft);
 
+		#ifndef TEST
 		printf("#Finished job %s\n\n", consumer_x);
-		free(buffer);
+        #endif
 
-		/* saving finishing time,tid and update index array */
+		/* Saving finishing & arrival, tid
+		 * and update index array */
+
+
+		time_copy(&pt[next].arrival_time, &mess.arrival_time);
 		clock_gettime(CLOCK_MONOTONIC, &pt[next].finishing_time);
+
 		pt[next].tid = gettid();
 		if(next == 499)
 			next = 0;
 		else
 			next++;
+
 		/* exit critical section for finishing_time */
+
 		pthread_mutex_unlock(&mux_ft);
 
+		free(buffer);
 	}
 
 	pthread_exit(0);
@@ -185,29 +200,64 @@ void *thread_main(void *arg)
 void *dummy_main(void *arg)
 {
 	int i;
-	int period = 20000; /* dummy is a task periodic */
+	int period = 5000; /* dummy is a task periodic */
 	struct timespec t;
 	long int processing_t;  /* processing time */
 
-	clock_gettime(CLOCK_MONOTONIC, &t);
+	#ifdef TEST
+		FILE *f;
+		char path[17];
+
+		if(strcmp(consumer_x, "consumer1") == 0)
+			strcpy(path, "media/out_c1.txt");
+		else
+			strcpy(path, "media/out_c2.txt");
+
+	#endif
+
+		clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
 
 		printf("#Report Dummy task %s\n", consumer_x);
 
-		for(i = 0; i < 500; i++){
+		pthread_mutex_lock(&mux_ft);
+		for(i = 0; i <= next; i++){
 			if( pt[i].tid > 0 ){
 				processing_t = calculate_pt(&pt[i].arrival_time,
-										    &pt[i].finishing_time);
+											&pt[i].finishing_time);
+
+                #ifndef TEST
+
 				printf("Processing time Thread[%ld]: ", pt[i].tid);
 				printf("%ld ms\n", processing_t);
+
+				#endif
+
+				#ifdef TEST
+
+				f = fopen(path, "a");
+				if(f == NULL){
+					perror("Impossibile aprire il file\n");
+					exit(1);
+				}
+
+				fprintf(f, "%ld\n", processing_t);
+
+				fclose(f);
+
+				#endif
+
 				pt[i].tid = 0;
+
 			}
 		}
-		printf("\n");
+		next = 0;
+		pthread_mutex_unlock(&mux_ft);
+		//printf("\n");
 
+		// Sleep to next period
 
-		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
 						TIMER_ABSTIME, &t, NULL);
 		time_add_ms(&t, period);
@@ -236,10 +286,11 @@ int who_am_i()
 void change_terminal()
 {
 	int fd;
-	char *myfifo = "/tmp/myfifo3"; /* my_fifo */
+	char *myfifo = "/tmp/myfifo3";
+    char *myfifo_c = "/tmp/myfifo4";
 	char path[14]; /* buffer /dev/pts/xxxx */
 	char signal[6] = "start";
-    char *myfifo_c = "/tmp/myfifo4";
+
 
     printf("#Waiting for process output\n");
 
@@ -288,7 +339,7 @@ void wait_consumer2()
 
 void setup_affinity_folder(char * consumer_x)
 {
-	FILE * f;
+	FILE *f;
 	char cpuset_folder[100];
 	char cpuset_file[100];
 	
@@ -348,17 +399,17 @@ int main(int argc, char *argv[])
 	strcpy(consumer_x, argv[0]);
 
 	/* if consumer2 change output to new terminal */
-/*
+	/*
 	if( who_am_i() == 1 )
 		change_terminal();
 	else
 		wait_consumer2();
-*/
-	printf("#Created %s\n", consumer_x);
-	
+	*/
+	//printf("#Created %s\n", consumer_x);
+
 	setup_affinity_folder(consumer_x);
 	
-	ntask = 10;//atoi(argv[1]); /* number of task to be created */
+	ntask = 50;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */

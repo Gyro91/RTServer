@@ -80,7 +80,6 @@ void set_affinity_cpu(char *folder, int pid)
 	}
 	printf("#Setting affinity to %d\n", pid);
 	fprintf(f, "%d\n", pid);
-
 	fclose(f);
 
 }
@@ -93,12 +92,14 @@ int main(int argc, char *argv[])
 	int pid_d, pid_c1, pid_c2, status;
 	char buffer[10];
 
-	// creates consumers & dispatcher
+	// Creates consumers & dispatcher
 
 	snprintf(buffer, 10, "%d", 100);
 	pid_d = fork();
 	if( pid_d == 0 ){
+
 		// Becomes dispatcher
+
 		execlp("./dispatcher",
 				"dispatcher", (char*)NULL);
 		printf("Exec fallita!\n");
@@ -107,7 +108,9 @@ int main(int argc, char *argv[])
 	else{
 		pid_c1 = fork();
 		if( pid_c1 == 0 ){
+
 			// Becomes consumer 1
+
 			execlp("./consumer1", "consumer1",
 					buffer, "/tmp/myfifo1", (char*)NULL);
 			printf("Exec fallita!\n");
@@ -116,7 +119,9 @@ int main(int argc, char *argv[])
 		else{
 			pid_c2 = fork();
 			if( pid_c2 == 0 ){
+
 				// Becomes consumer2
+
 				execlp("./consumer2", "consumer2",
 						buffer, "/tmp/myfifo2", (char*)NULL);
 				printf("Exec fallita!\n");
@@ -124,18 +129,13 @@ int main(int argc, char *argv[])
 			}
 			else{
 
-				// Setting affinity to children
+				// Setting affinity to dispatcher
 
 				setup_affinity_folder("dispatcher", "1");
 				set_affinity_cpu("dispatcher", pid_d);
-/*
-				setup_affinity_folder("p_consumer1", "2");
-				set_affinity_cpu("p_consumer1", pid_c1);
 
-				setup_affinity_folder("p_consumer2", "3");
-				set_affinity_cpu("p_consumer2", pid_c2);
-*/
 				// Waits children
+
 				wait(&status);
 			}
 
