@@ -156,7 +156,7 @@ void accept_connection()
 
 int main(int argc, char *argv[])
 {	
-	int period = 250; /** dispatcher is a process periodic */
+	int period = 50; /** dispatcher is a process periodic */
 	struct timespec t;
 
 	printf("#Dispatcher created\n");

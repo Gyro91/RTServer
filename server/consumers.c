@@ -121,7 +121,7 @@ void *thread_main(void *arg)
 	char *buffer;  /* buffer for data */
 	message_t mess;
 	
-	set_scheduler();
+	//set_scheduler();
 	set_affinity();
 
 	while( LOOP ){

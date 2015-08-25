@@ -11,7 +11,7 @@ int sk; /* socket for communication between generator and server */
 int main(int argc, char *argv[])
 {
 	struct timespec t;
-	int period = 250; /** generator is a process periodic */
+	int period = 250;
 	char *payload;
 	message_t mess; /** message to be delivered */
 
@@ -39,6 +39,9 @@ int main(int argc, char *argv[])
 		// free payload for next packet
 		free(payload);
 
+		// randomly period and variables
+		period = (rand() % 250) + 50;
+		printf("%d\n", period);
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &t, NULL);
