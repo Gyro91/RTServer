@@ -43,7 +43,7 @@ void set_scheduler()
 
 	attr.sched_policy = SCHED_DEADLINE;
 	attr.sched_runtime = 15 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 800 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
@@ -56,6 +56,10 @@ void set_scheduler()
 	    pthread_mutex_unlock(&console_mux);
 	    pthread_exit(NULL);
 	  }
+
+	printf("Set SCHED_DEADLINE %lld/%lld\n",
+			attr.sched_runtime/ 1000000,
+			attr.sched_deadline / 1000000);
 }
 
 
@@ -121,8 +125,14 @@ void *thread_main(void *arg)
 	char *buffer;  /* buffer for data */
 	message_t mess;
 	
-	//set_scheduler();
-	//set_affinity();
+	pthread_mutex_lock(&console_mux);
+
+	printf("%s Thread[%ld] setup\n", consumer_x, gettid());
+
+	pthread_mutex_unlock(&console_mux);
+
+	set_scheduler();
+	set_affinity();
 
 	while( LOOP ){
 
@@ -407,13 +417,13 @@ int main(int argc, char *argv[])
 	*/
 	//printf("#Created %s\n", consumer_x);
 
-	//setup_affinity_folder(consumer_x);
+	setup_affinity_folder(consumer_x);
 	
 	ntask = 3;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */
-	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
+	t_list = (pthread_t*)malloc((ntask+1) * sizeof(pthread_t));
 	ret = pthread_create(&t_list[0],
 				         NULL, dummy_main, NULL);
 	if( ret ){
