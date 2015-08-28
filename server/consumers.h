@@ -70,6 +70,13 @@ struct sched_attr {
 	__u64 sched_period;
 };
 
+struct partition_u{
+	pthread_t tid;
+	long long int runtime;
+	long long int deadline;
+	char fifo[14];
+};
+
 int sched_setattr(pid_t pid,
                   const struct sched_attr *attr,
                   unsigned int flags);

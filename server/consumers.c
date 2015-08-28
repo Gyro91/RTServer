@@ -17,21 +17,48 @@
 #define DIM_NAME 10
 #define __sched_priority sched_priority
 
-pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
-pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
-														finishing_time */
-pthread_mutex_t console_mux; /* mutex for console video */
+/** mutex for named pipe */
+pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
+/** mutex for finishing_time */
+pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER;
+/** mutex for console video */
+pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;
+/** mutex for u_factor */
+pthread_mutex_t mux_uf = PTHREAD_MUTEX_INITIALIZER;
 
-char consumer_x[DIM_NAME];/** name of the consumer */
-struct processing_task pt[500]; /** circular array for
-								* recording processing times */
-int next;/** index circular array */
+/** name of the consumer */
+char consumer_x[DIM_NAME];
 
+/** circular array for
+ *  recording processing times */
+struct processing_task pt[500];
+/** index circular array */
+int next;
+
+struct partition_u u_factor[3];
+int index_u = -1;
+
+/** generates three configurations for SCHED_DEADLINE */
+
+void generate_conf()
+{
+	u_factor[0].runtime = 11 * 1000 * 1000;
+	u_factor[0].deadline = 39 * 1000 * 1000;
+	u_factor[0].tid  = 0;
+
+	u_factor[1].runtime = 11 * 1000 * 1000;
+	u_factor[1].deadline = 39 * 1000 * 1000;
+	u_factor[1].tid  = 0;
+
+	u_factor[2].runtime = 57 * 1000 * 1000;
+	u_factor[2].deadline = 150 * 1000 * 1000;
+	u_factor[2].tid  = 0;
+}
 
 
 /** changes scheduler */
 
-void set_scheduler()
+void set_scheduler(int j)
 {
 	int ret;
 	struct sched_attr attr;
@@ -42,8 +69,8 @@ void set_scheduler()
 	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 15 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 800 * 1000 * 1000;
+	attr.sched_runtime = u_factor[j].runtime;
+	attr.sched_period = attr.sched_deadline = u_factor[j].deadline;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
@@ -56,9 +83,12 @@ void set_scheduler()
 	    pthread_mutex_unlock(&console_mux);
 	    pthread_exit(NULL);
 	  }
+
+	printf("Set SCHED_DEADLINE %lld/%lld\n",
+			(attr.sched_runtime / 1000000), (attr.sched_deadline / 1000000));
 }
 
-dfssfdsdffds
+
 
 /** sets cpu for the task caller */
 
@@ -86,7 +116,21 @@ void set_affinity()
 	fclose(f);
 }
 
+char* generate_string(int i){
 
+	static char string[2];
+
+	if( i == 0 )
+		strcpy(string, "L");
+
+	if( i == 1 )
+		strcpy(string, "M");
+
+	if( i == 2 )
+		strcpy(string, "H");
+
+	return string;
+}
 
 /** Every task does several hash for each string received */
 
@@ -120,9 +164,26 @@ void *thread_main(void *arg)
 	int i, fd; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
-	
-	//set_scheduler();
+	int key;
+
+	pthread_mutex_lock(&mux_uf);
+
+	printf("#%s:Thread[%ld] setup\n", consumer_x, gettid());
+
+	if(u_factor[(index_u + 1)].tid == 0){
+			u_factor[index_u].tid = gettid();
+			key = ++index_u;
+	}
+
+	strcpy(u_factor[key].fifo, arg);
+	strcat(u_factor[key].fifo, generate_string(key));
+
+	pthread_mutex_unlock(&mux_uf);
+
+
+	set_scheduler(key);
 	set_affinity();
+
 
 	while( LOOP ){
 
@@ -130,13 +191,14 @@ void *thread_main(void *arg)
 
 		pthread_mutex_lock(&mux_np);
 
+		/* Opening named pipe */
+
+		mkfifo(u_factor[key].fifo, 0666);
+		fd = open(u_factor[key].fifo, O_RDONLY);
+
 		/* Reading size data to be received */
 
-		mkfifo(arg, 0666);
-		fd = open(arg, O_RDONLY);
 		read(fd, &mess, sizeof(message_t));
-
-
 
         #ifndef TEST
 		printf("#Starting job %s\n", consumer_x);
@@ -149,9 +211,11 @@ void *thread_main(void *arg)
 		/* Reading data */
 
 		read(fd, buffer, mess.size);
-		close(fd);
-		unlink(arg);
 
+		/* Closing named pipe */
+
+		close(fd);
+		unlink(u_factor[key].fifo);
 
 		/* Exit critical section for named pipe*/
 
@@ -172,7 +236,6 @@ void *thread_main(void *arg)
 
 		/* Saving finishing & arrival, tid
 		 * and update index array */
-
 
 		time_copy(&pt[next].arrival_time, &mess.arrival_time);
 		clock_gettime(CLOCK_MONOTONIC, &pt[next].finishing_time);
@@ -215,7 +278,7 @@ void *dummy_main(void *arg)
 
 	#endif
 
-		clock_gettime(CLOCK_MONOTONIC, &t);
+	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
 
@@ -398,22 +461,18 @@ int main(int argc, char *argv[])
 	/* to understand who's the process */
 	strcpy(consumer_x, argv[0]);
 
-	/* if consumer2 change output to new terminal */
-	/*
-	if( who_am_i() == 1 )
-		change_terminal();
-	else
-		wait_consumer2();
-	*/
-	//printf("#Created %s\n", consumer_x);
+    printf("#Created %s\n", consumer_x);
 
 	setup_affinity_folder(consumer_x);
-	
-	ntask = 50;//atoi(argv[1]); /* number of task to be created */
+	generate_conf();
+
+	ntask = 3;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
+
 	/* generating (ntask+1) thread */
-	t_list = (pthread_t*)malloc(ntask * sizeof(pthread_t));
+
+	t_list = (pthread_t*)malloc((ntask + 1) * sizeof(pthread_t));
 	ret = pthread_create(&t_list[0],
 				         NULL, dummy_main, NULL);
 	if( ret ){
@@ -421,7 +480,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	for(i = 1; i < (ntask + 1); i++){
+	for(i = 1; i < (ntask + 1) ; i++){
 		ret = pthread_create(&t_list[i],
 				             NULL, thread_main, (void *)argv[2]);
 		if( ret ){
@@ -431,6 +490,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* process father waits the end of threads */
+
 	for(i = 0; i < (ntask + 1); i++){
 		ret = pthread_join(t_list[i],(void **)&status);
 		if( ret > 0 ){

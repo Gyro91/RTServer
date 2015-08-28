@@ -35,7 +35,8 @@ void time_add_ms(struct timespec *dst, long int ms)
 }
 
 
-/** handling return of recv: -1 error on socket, 0 if connection lost */
+/** Handling return of recv: -1 error on socket, 0 if connection lost */
+
 void handle_error_recv(int ret)
 {
 	if( ret == -1)
@@ -50,13 +51,38 @@ void handle_error_recv(int ret)
 	}
 }
 
-void write_pipe(char *myfifo, char *buffer, message_t *mess)
+
+char* generate_string(int size){
+
+	static char string[2];
+
+	if( size > 0 && size <= 18 )
+		strcpy(string, "L");
+
+	if( size > 18 && size <=36 )
+		strcpy(string, "M");
+
+	if( size > 36 && size <= 56 )
+		strcpy(string, "H");
+
+	return string;
+}
+
+/** send message and payload to myfifo */
+
+void write_pipe(char *myfifo, char *payload, message_t *mess)
 {
 	int fd;
+	char fifo[14];
 
-	fd = open(myfifo, O_WRONLY);
+	strcpy(fifo, myfifo);
+	strcat(fifo, generate_string(mess->size));
+
+	fd = open(fifo, O_WRONLY);
+
 	write(fd, mess, sizeof(message_t)); /* sending mess via IPC */
-	write(fd, buffer, mess->size); /* sending payload via IPC */
+	write(fd, payload, mess->size); /* sending payload via IPC */
+
 	close(fd);
 
 }
@@ -74,19 +100,25 @@ int receive_dispatch_pkt()
 	message_t mess;
 	char *buffer;
 
-	ret = recv(cn_sk, (void *)&mess, sizeof(mess), MSG_WAITALL); /* receiving struct*/
+	/* Receiving message with info */
+
+	ret = recv(cn_sk, (void *)&mess, sizeof(mess), MSG_WAITALL);
 	handle_error_recv(ret);
 
 	if( status_c ){
+		/* Receive payload */
+
 		buffer = (char *)malloc(mess.size);
-		ret = recv(cn_sk, buffer, mess.size, MSG_WAITALL); /* receive message */
+		ret = recv(cn_sk, buffer, mess.size, MSG_WAITALL);
 		handle_error_recv(ret);
 
-		/* taking arrival time */
+		/* Taking arrival time */
+
 		clock_gettime(CLOCK_MONOTONIC, &mess.arrival_time);
 
-		/* if type1 sending to consumer 1,
+		/* If type1 sending to consumer 1,
 		 * otherwise sending to consumer2 */
+
 		if( !mess.type )
 			write_pipe(myfifo1, buffer, &mess);
 		else
