@@ -55,8 +55,10 @@ void write_pipe(char *myfifo, char *buffer, message_t *mess)
 	int fd;
 
 	fd = open(myfifo, O_WRONLY);
+
 	write(fd, mess, sizeof(message_t)); /* sending mess via IPC */
 	write(fd, buffer, mess->size); /* sending payload via IPC */
+
 	close(fd);
 
 }

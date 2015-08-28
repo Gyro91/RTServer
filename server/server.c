@@ -131,8 +131,8 @@ int main(int argc, char *argv[])
 
 				// Setting affinity to dispatcher
 
-				setup_affinity_folder("dispatcher", "1");
-				set_affinity_cpu("dispatcher", pid_d);
+				//setup_affinity_folder("dispatcher", "1");
+				//set_affinity_cpu("dispatcher", pid_d);
 
 				// Waits children
 

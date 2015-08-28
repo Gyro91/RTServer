@@ -20,7 +20,7 @@
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
 pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
 														finishing_time */
-pthread_mutex_t console_mux; /* mutex for console video */
+pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;; /* mutex for console video */
 
 char consumer_x[DIM_NAME];/** name of the consumer */
 struct processing_task pt[500]; /** circular array for
@@ -122,7 +122,7 @@ void *thread_main(void *arg)
 	message_t mess;
 	
 	//set_scheduler();
-	set_affinity();
+	//set_affinity();
 
 	while( LOOP ){
 
@@ -215,7 +215,7 @@ void *dummy_main(void *arg)
 
 	#endif
 
-		clock_gettime(CLOCK_MONOTONIC, &t);
+	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_add_ms(&t, period);
 	while( LOOP){
 
@@ -407,9 +407,9 @@ int main(int argc, char *argv[])
 	*/
 	//printf("#Created %s\n", consumer_x);
 
-	setup_affinity_folder(consumer_x);
+	//setup_affinity_folder(consumer_x);
 	
-	ntask = 50;//atoi(argv[1]); /* number of task to be created */
+	ntask = 3;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
 	/* generating (ntask+1) thread */

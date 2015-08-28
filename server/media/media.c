@@ -6,9 +6,10 @@
 
 void calculate_media(char *path)
 {
-	float n, sum, count, worst_case = 0;
+	float n, sum = 0, count = 0,
+		  worst_case = 0, media;
 	
-	float media;
+
 	
 	FILE *f;
 	
@@ -27,8 +28,7 @@ void calculate_media(char *path)
 		
 		if( worst_case < n )
 			worst_case = n;
-		//if(count == 2)
-		//	break;	
+
 	}
 	
 	fclose(f);
@@ -39,11 +39,18 @@ void calculate_media(char *path)
 	// Parameter deadline/period
 	n = ( media + worst_case ) / 2;
 	
-	printf("Champions number: %.0f\n", count);
-	printf("Worst_case: %.0f\n", worst_case);
-	printf("Media: %f ms\n", media);
-	printf("(Worst_case + Media)/2: %f ms\n\n", n);
 	
+	printf("Champions number: %.0f\n", count);
+	printf("Worst_case: %.0f ms\n", worst_case);
+	printf("Media: %f ms\n", media);
+	printf("(Worst_case + Media)/2: %f ms\n", n);
+	
+	sum -= worst_case;
+	count -=1;
+	media = sum / count;
+	
+	printf("Media(without worst_case) %f ms\n\n", media);
+		
 }
 
 int main ()

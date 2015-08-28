@@ -39,9 +39,7 @@ int main(int argc, char *argv[])
 		// free payload for next packet
 		free(payload);
 
-		// randomly period and variables
-		period = (rand() % 250) + 50;
-		printf("%d\n", period);
+
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &t, NULL);
