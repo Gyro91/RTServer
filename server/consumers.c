@@ -125,7 +125,6 @@ void *thread_main(void *arg)
 
 //	set_scheduler();
 
-
 	while( LOOP ){
 
 		/* Enter to critical section to protect named pipe */
