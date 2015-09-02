@@ -17,15 +17,20 @@
 #define DIM_NAME 10
 #define __sched_priority sched_priority
 
-pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER; /** mutex for named pipe */
-pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER; /** mutex for
-														finishing_time */
-pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;; /* mutex for console video */
+/** mutex for named pipe */
+pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
+/** mutex for finishing_time */
+pthread_mutex_t mux_ft = PTHREAD_MUTEX_INITIALIZER;
+/** mutex for console video */
+pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;
 
-char consumer_x[DIM_NAME];/** name of the consumer */
-struct processing_task pt[500]; /** circular array for
-								* recording processing times */
-int next;/** index circular array */
+
+/** name of the consumer */
+char consumer_x[DIM_NAME];
+/** circular array for recording processing times */
+struct processing_task pt[500];
+/** index circular array */
+int next;
 
 
 
@@ -64,31 +69,23 @@ void set_scheduler()
 
 
 
-/** sets cpu for the task caller */
+/** Sets cpu for the tasks */
 
-void set_affinity()
+void set_cpu_thread(pthread_t thread)
 {
-	FILE * f;
-	char cpuset_file[100];
+	cpu_set_t bitmap;
 	
-	// Creates the folders for the cpuset
+	CPU_ZERO(&bitmap);
 	
-	if (!strcmp(consumer_x, "consumer1"))
-		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_1");
+	if(!strncmp(consumer_x, "consumer1", DIM_NAME))
+		CPU_SET(2, &bitmap);
 	else
-		strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/consumer_2");
+		CPU_SET(3, &bitmap);
 	
-	strcat(cpuset_file, "/tasks");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	printf("#Setting affinity to %ld\n", gettid());
-	fprintf(f, "%ld\n", gettid());
-	
-	fclose(f);
+	pthread_setaffinity_np(thread,sizeof(bitmap), &bitmap);
+
 }
+
 
 
 
@@ -125,14 +122,9 @@ void *thread_main(void *arg)
 	char *buffer;  /* buffer for data */
 	message_t mess;
 	
-	pthread_mutex_lock(&console_mux);
 
-	printf("%s Thread[%ld] setup\n", consumer_x, gettid());
+//	set_scheduler();
 
-	pthread_mutex_unlock(&console_mux);
-
-	set_scheduler();
-	set_affinity();
 
 	while( LOOP ){
 
@@ -147,10 +139,8 @@ void *thread_main(void *arg)
 		read(fd, &mess, sizeof(message_t));
 
 
-
-        #ifndef TEST
 		printf("#Starting job %s\n", consumer_x);
-        #endif
+
 
 		/* Allocating memory for size byte */
 
@@ -176,9 +166,9 @@ void *thread_main(void *arg)
 
 		pthread_mutex_lock(&mux_ft);
 
-		#ifndef TEST
+
 		printf("#Finished job %s\n\n", consumer_x);
-        #endif
+
 
 		/* Saving finishing & arrival, tid
 		 * and update index array */
@@ -264,7 +254,7 @@ void *dummy_main(void *arg)
 		}
 		next = 0;
 		pthread_mutex_unlock(&mux_ft);
-		//printf("\n");
+
 
 		// Sleep to next period
 
@@ -279,150 +269,25 @@ void *dummy_main(void *arg)
 
 
 
-/** returns 0 if it's consumer1 else 1 */
 
-int who_am_i()
-{
-	if( strcmp(consumer_x, "consumer1") == 0 )
-		return 0;
-	else
-		return 1;
-}
-
-
-
-/** changes output to new terminal */
-
-void change_terminal()
-{
-	int fd;
-	char *myfifo = "/tmp/myfifo3";
-    char *myfifo_c = "/tmp/myfifo4";
-	char path[14]; /* buffer /dev/pts/xxxx */
-	char signal[6] = "start";
-
-
-    printf("#Waiting for process output\n");
-
-	/* reading path new terminal */
-	mkfifo(myfifo, 0666);
-    fd = open(myfifo, O_RDONLY);
-    read(fd, path, 15);
-    close(fd);
-    unlink(myfifo);
-
-    /* associating new output to the process */
-    freopen(path, "a", stdout);
-
-    /* sending signal to consumer1*/
-    fd = open(myfifo_c, O_WRONLY);
-    write(fd, signal, 6);
-    close(fd);
-}
-
-
-
-/** consumer1 waits consumer2 to change terminal */
-
-void wait_consumer2()
-{
-	int fd;
-	char *myfifo = "/tmp/myfifo4"; /* my_fifo */
-	char buf[15]; /* buffer */
-
-	while( LOOP ){
-		mkfifo(myfifo, 0666);
-		fd = open(myfifo, O_RDONLY);
-		read(fd, buf, 6); /* reading path new terminal */
-		close(fd);
-		unlink(myfifo);
-
-		if( strcmp(buf, "start") == 0 )
-			break;
-	}
-
-}
-
-
-
-/** It does preliminary operations for set_affinity */
-
-void setup_affinity_folder(char * consumer_x)
-{
-	FILE *f;
-	char cpuset_folder[100];
-	char cpuset_file[100];
-	
-	// Creates the folders for the cpuset
-	
-	if (!strcmp(consumer_x, "consumer1"))
-		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_1");
-	else
-		strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/consumer_2");
-	
-	printf("#Creating folder \"%s\"\n", cpuset_folder);
-	rmdir(cpuset_folder);
-	if (mkdir(cpuset_folder, S_IRWXU)) {
-		pthread_mutex_lock(&console_mux);	    
-		printf("Error creating CPUSET folder\n");
-		pthread_mutex_unlock(&console_mux);
-		pthread_exit(NULL);
-	}
-	
-	// Updates the memory node
-	
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.mems");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	fprintf(f, "0");
-	fclose(f);
-	
-	// Sets which CPU will be used by the consumers
-	
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.cpus");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	if (!strcmp(consumer_x, "consumer1"))
-		fprintf(f, "2");
-	else
-		fprintf(f, "3");
-	
-	fclose(f);
-}
 
 
 
 int main(int argc, char *argv[])
 {
-	int i, ntask, ret, status;
+	int i, ntask = 3, ret, status;
 	pthread_t *t_list;
 	
 	/* to understand who's the process */
+
 	strcpy(consumer_x, argv[0]);
 
-	/* if consumer2 change output to new terminal */
-	/*
-	if( who_am_i() == 1 )
-		change_terminal();
-	else
-		wait_consumer2();
-	*/
-	//printf("#Created %s\n", consumer_x);
+	printf("#Created %s\n", consumer_x);
 
-	setup_affinity_folder(consumer_x);
-	
-	ntask = 3;//atoi(argv[1]); /* number of task to be created */
 	next = 0;
 
-	/* generating (ntask+1) thread */
+	/* Generating (ntask+1) thread */
+
 	t_list = (pthread_t*)malloc((ntask+1) * sizeof(pthread_t));
 	ret = pthread_create(&t_list[0],
 				         NULL, dummy_main, NULL);
@@ -438,9 +303,14 @@ int main(int argc, char *argv[])
 			printf("Error pthread_create()\n");
 			exit(1);
 		}
+
+		/* Allocating cpu-unit for each thread */
+
+		set_cpu_thread(t_list[i]);
 	}
 
-	/* process father waits the end of threads */
+	/* Father waits the end of threads */
+
 	for(i = 0; i < (ntask + 1); i++){
 		ret = pthread_join(t_list[i],(void **)&status);
 		if( ret > 0 ){

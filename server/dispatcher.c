@@ -23,6 +23,7 @@ char *myfifo2 = "/tmp/myfifo2";/** named pipe for IPC communication with consume
 
 
 /* add ms to the specific destination */
+
 void time_add_ms(struct timespec *dst, long int ms)
 {
 	dst->tv_sec += ms/1000;
@@ -36,6 +37,7 @@ void time_add_ms(struct timespec *dst, long int ms)
 
 
 /** handling return of recv: -1 error on socket, 0 if connection lost */
+
 void handle_error_recv(int ret)
 {
 	if( ret == -1)
@@ -163,7 +165,7 @@ int main(int argc, char *argv[])
 
 	printf("#Dispatcher created\n");
 
-/* TEST CPU
+/* TEST
    cpu_set_t bitmap;
 
 	sched_getaffinity(0,sizeof(bitmap), &bitmap);

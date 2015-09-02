@@ -14,75 +14,26 @@
 #include <sched.h>
 
 
+/** sets a cpu for each child */
 
-/** creates a folder with name folder with set CPU for the cpuset */
-
-void setup_affinity_folder(char *folder, char *cpu)
+void set_cpu(int pid_d, int pid_c1 , int pid_c2)
 {
-	FILE * f;
-	char cpuset_folder[100];
-	char cpuset_file[100];
+	cpu_set_t bitmap;
 
-	strcpy(cpuset_folder, "/sys/fs/cgroup/cpuset/");
-	strcat(cpuset_folder, folder);
+	CPU_ZERO(&bitmap);
+	CPU_SET(1, &bitmap);
+	sched_setaffinity(pid_d, sizeof(bitmap), &bitmap);
 
-	// Creates the folder for the cpuset
+	CPU_ZERO(&bitmap);
+	CPU_SET(2, &bitmap);
+	sched_setaffinity(pid_c1, sizeof(bitmap), &bitmap);
 
-	printf("#Creating folder \"%s\"\n", cpuset_folder);
-
-	rmdir(cpuset_folder);
-	if (mkdir(cpuset_folder, S_IRWXU))
-		printf("Error creating CPUSET folder\n");
-
-	// Updates the memory node
-
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.mems");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	fprintf(f, "0");
-	fclose(f);
-
-	// Sets which CPU will be used
-
-	strcpy(cpuset_file, cpuset_folder);
-	strcat(cpuset_file, "/cpuset.cpus");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	fprintf(f, "%s", cpu);
-
-	fclose(f);
+	CPU_ZERO(&bitmap);
+	CPU_SET(3, &bitmap);
+	sched_setaffinity(pid_c2, sizeof(bitmap), &bitmap);
 
 }
 
-/** sets a CPU in folder for the process  */
-
-void set_affinity_cpu(char *folder, int pid)
-{
-	FILE * f;
-	char cpuset_file[100];
-
-	// Creates the folders for the cpuset
-
-	strcpy(cpuset_file, "/sys/fs/cgroup/cpuset/");
-	strcat(cpuset_file, folder);
-	strcat(cpuset_file, "/tasks");
-	f = fopen(cpuset_file, "w");
-	if (f == NULL) {
-		printf("Error opening file \"%s\"\n", cpuset_file);
-		exit(1);
-	}
-	printf("#Setting affinity to %d\n", pid);
-	fprintf(f, "%d\n", pid);
-	fclose(f);
-
-}
 
 
 int main(int argc, char *argv[])
@@ -129,10 +80,9 @@ int main(int argc, char *argv[])
 			}
 			else{
 
-				// Setting affinity to dispatcher
+				// Setting affinity
 
-				setup_affinity_folder("dispatcher", "1");
-				set_affinity_cpu("dispatcher", pid_d);
+				set_cpu(pid_d, pid_c1, pid_c2);
 
 				// Waits children
 
