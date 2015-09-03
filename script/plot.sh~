@@ -3,7 +3,7 @@
 	EXIT_SUCCESS=0
 	var1=0
 	var2=0
-	message=10	
+	message=50	
 	period=50
 	
 	rm ../server/media/out_c*

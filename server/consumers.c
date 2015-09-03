@@ -208,9 +208,9 @@ void *dummy_main(void *arg)
 		char path[17];
 
 		if(strcmp(consumer_x, "consumer1") == 0)
-			strcpy(path, "media/out_c1.txt");
+			strcpy(path, "../script/tools/out_c1.txt");
 		else
-			strcpy(path, "media/out_c2.txt");
+			strcpy(path, "../script/tools/out_c2.txt");
 
 	#endif
 
