@@ -7,14 +7,14 @@
 #include <sys/syscall.h>
 #include <pthread.h>
 
-/** @brief calculates response time in ms */
+/** @brief calculates response time in microseconds */
 
 long int calculate_pt(struct timespec *ta, struct timespec *tf)
 {
 	long int at, ft;
 
-	at = (ta->tv_sec * 1000) + (ta->tv_nsec / 1000000);
-	ft = (tf->tv_sec * 1000) + (tf->tv_nsec / 1000000);
+	at = (ta->tv_sec * 1000 * 1000) + (ta->tv_nsec / 1000);
+	ft = (tf->tv_sec * 1000 * 1000) + (tf->tv_nsec / 1000);
 
 	return (ft - at);
 }

@@ -145,11 +145,12 @@ void send_pkt(message_t *mess, char *payload)
 
 }
 
-/** add ms to the specific destination */
-void time_add_ms(struct timespec *dst, long int ms)
+/** Add micro seconds to the specific destination */
+
+void time_add_micros(struct timespec *dst, long int ms)
 {
-  dst->tv_sec += ms/1000;
-  dst->tv_nsec += (ms % 1000) * 1e6;
+  dst->tv_sec += ms/1000000;
+  dst->tv_nsec += (ms % 1000000) * 1e3;
 
   if (dst->tv_nsec > 1e9) {
 	  dst->tv_nsec -= 1e9;

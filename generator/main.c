@@ -50,8 +50,6 @@ int main(int argc, char *argv[])
 	 }
 
 
-
-	  printf("%d %d\n", number ,period);
 	// init: taking cpu
 	init_generator();
 
@@ -60,7 +58,7 @@ int main(int argc, char *argv[])
 
 	srand(time(NULL));
 	clock_gettime(CLOCK_MONOTONIC, &t);
-	time_add_ms(&t, period);
+	time_add_micros(&t, period);
 	while( LOOP ){
 
 		if( !number )
@@ -83,7 +81,7 @@ int main(int argc, char *argv[])
 		// sleep to next period
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &t, NULL);
-		time_add_ms(&t, period);
+		time_add_micros(&t, period);
 
 
 	}
