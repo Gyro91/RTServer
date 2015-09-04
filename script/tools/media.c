@@ -6,7 +6,7 @@
 
 void calculate_media(char *path)
 {
-	float n, sum = 0, count = 0,
+	long double n, sum = 0, count = 0,
 		  worst_case = 0, media;
 	
 
@@ -22,7 +22,7 @@ void calculate_media(char *path)
 	// Reading champions until EOF
 	
 	while(!feof(f)){
-		fscanf(f, "%f\n", &n);
+		fscanf(f, "%llf\n", &n);
 		count++;
 		sum += n;
 		
@@ -37,7 +37,7 @@ void calculate_media(char *path)
 	media = sum / count;
 	
 	
-	printf("%f", media);
+	printf("%llf", media);
 	
 	
 		

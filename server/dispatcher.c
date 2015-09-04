@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "messages.h"
 #ifndef __USE_GNU
 #define __USE_GNU
@@ -19,7 +21,7 @@ int status_c = 0; /** status of connection */
 
 char *myfifo1 = "/tmp/myfifo1"; /** named pipe for IPC communication with consumer1 */
 char *myfifo2 = "/tmp/myfifo2";/** named pipe for IPC communication with consumer2 */
-
+char *wc = "/tmp/wait_c";  /** for waiting read of consumer */
 
 
 /* add ms to the specific destination */
@@ -54,15 +56,40 @@ void handle_error_recv(int ret)
 
 void write_pipe(char *myfifo, char *buffer, message_t *mess)
 {
-	int fd;
+	int fd, ret, remaining, fd_w;
 
-	fd = open(myfifo, O_WRONLY);
 
-	write(fd, mess, sizeof(message_t)); /* sending mess via IPC */
-	write(fd, buffer, mess->size); /* sending payload via IPC */
+	while ( (fd = open(myfifo, O_WRONLY | O_NONBLOCK)) == -1) {
+		printf("Pipe doesn't exist\n");
+	//	sleep(1);
+	}
 
+	remaining = sizeof(message_t);
+	while (remaining > 0) {
+		ret = write(fd, (void *)mess + sizeof(message_t) - remaining, remaining); /* sending payload via IPC */
+		remaining -= ret;
+		if( ret  == -1)
+			perror("Errror write1\n");
+	}
+
+	remaining = mess->size;
+	while (remaining > 0) {
+		ret = write(fd, buffer + mess->size - remaining, remaining); /* sending payload via IPC */
+		remaining -= ret;
+		if( ret  == -1)
+			perror("Error write2\n");
+	}
+
+	/* Before closing descriptor,waiting client for finishing to read */
+	mkfifo(wc, 0666);
+
+	fd_w = open(wc, O_RDONLY);
+	read(fd, (void *)&buffer, 3);
+
+	close(fd_w);
 	close(fd);
 
+	unlink(wc);
 }
 
 /** @brief receive packet from generator
@@ -91,6 +118,7 @@ int receive_dispatch_pkt()
 
 		/* if type1 sending to consumer 1,
 		 * otherwise sending to consumer2 */
+
 		if( !mess.type )
 			write_pipe(myfifo1, buffer, &mess);
 		else
@@ -160,12 +188,12 @@ void accept_connection()
 
 int main(int argc, char *argv[])
 {	
-	int period = 50; /** dispatcher is a process periodic */
+	int period = 0; /** dispatcher is a process periodic */
 	struct timespec t;
 
 	printf("#Dispatcher created\n");
 
-/* TEST
+	/* TEST
    cpu_set_t bitmap;
 
 	sched_getaffinity(0,sizeof(bitmap), &bitmap);
@@ -175,7 +203,7 @@ int main(int argc, char *argv[])
 		printf("test2 dispatcher ok\n");
 	else
 		printf("test failed\n");
-*/
+	 */
 	// setup for a connection TCP
 	setup_TCP_server();
 	accept_connection();

@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
 
 	}
-
+	close(sk);
     printf("#Generator finished\n");
 
 	return 0;

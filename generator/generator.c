@@ -10,6 +10,7 @@
 #include <sched.h>
 #include "messages.h"
 
+int type = 0;
 /*
  * In testing mode global variable,besides it looks in another file
  * */
@@ -52,12 +53,15 @@ void init_generator()
  * */
 enum msg_type draw_message()
 {
-	int random = rand() % 2;
-
-	if( random )
+	if( type == 0 ){
+		type = 1;
 		return TYPE1;
-	else
+	}
+	else {
+		type = 0;
 		return TYPE2;
+	}
+
 }
 
 

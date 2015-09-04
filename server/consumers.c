@@ -17,6 +17,8 @@
 #define DIM_NAME 10
 #define __sched_priority sched_priority
 
+char *wc = "/tmp/wait_c";
+
 /** mutex for named pipe */
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
 /** mutex for finishing_time */
@@ -118,7 +120,7 @@ size_t hash(char const *input) {
 
 void *thread_main(void *arg)
 {
-	int i, fd; /* count variable and descriptor */
+	int i, fd, ret, remaining; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
 	
@@ -135,7 +137,18 @@ void *thread_main(void *arg)
 
 		mkfifo(arg, 0666);
 		fd = open(arg, O_RDONLY);
-		read(fd, &mess, sizeof(message_t));
+		if( fd == -1 )
+			printf("Error opening consumer\n");
+
+		remaining = sizeof(message_t);
+		while(remaining > 0){
+			ret = read(fd, (void *)&mess + sizeof(message_t) - remaining, remaining);
+			remaining -= ret;
+			if(ret == -1){
+				printf("Error read1\n");
+			}
+		}
+
 
 
 		printf("#Starting job %s\n", consumer_x);
@@ -146,8 +159,15 @@ void *thread_main(void *arg)
 		buffer = (char *)malloc(mess.size);
 
 		/* Reading data */
+		remaining = mess.size;
+		while(remaining > 0){
+			ret = read(fd, buffer + mess.size - remaining, remaining);
+			remaining -= ret;
+			if( ret == -1){
+				printf("Error read2\n");
+			}
+		}
 
-		read(fd, buffer, mess.size);
 		close(fd);
 		unlink(arg);
 
@@ -158,20 +178,25 @@ void *thread_main(void *arg)
 
 		/* Elaborating data */
 
-		for(i = 0; i < 10000; i++)
+		for(i = 0; i < 100000; i++)
 			hash(buffer);
 
 		/* Enter to critical section to protect struct for finishing_time */
 
 		pthread_mutex_lock(&mux_ft);
 
-
 		printf("#Finished job %s\n\n", consumer_x);
 
+		/* Sending signal to dispatcher to close */
+
+		fd = open(wc, O_WRONLY);
+
+		write(fd, "Hi", sizeof("Hi"));
+
+		close(fd);
 
 		/* Saving finishing & arrival, tid
 		 * and update index array */
-
 
 		time_copy(&pt[next].arrival_time, &mess.arrival_time);
 		clock_gettime(CLOCK_MONOTONIC, &pt[next].finishing_time);

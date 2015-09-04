@@ -6,7 +6,7 @@ all: server
 server : server.o dispatcher server.c consumers.c consumers
 	$(CC) $(CFLAGS) -o server server.c
 	
-dispatcher : dispatcher.o
+dispatcher : dispatcher.o 
 	$(CC) -o dispatcher dispatcher.c			
 
 dispatcher.o : messages.h dispatcher.c

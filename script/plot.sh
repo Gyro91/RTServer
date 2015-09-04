@@ -3,7 +3,7 @@
 	EXIT_SUCCESS=0
 	var1=0
 	var2=0
-	message=50	
+	message=1000	
 	period=1000
 	media=0
 	worst=0
@@ -12,15 +12,18 @@
   
 	#gnuplot
 	#plot 'plotting_data1.dat' with linespoints ls 1		
-	for i in `seq 1 10`;
+	for i in `seq 1 4`;
 	do
+	cd /tmp
+	rm -f myfifo*
+	cd /home/matteo/Desktop/project/script
 	rm -f tools/out_c*
 	cd ../server
 	gnome-terminal -e ./server &
 	sleep 1
 	cd ../generator
 	gnome-terminal -x bash -c "./generator -m$message -p$period" &
-	sleep 5
+	sleep 7
 	
 	cd ../script
 	while true;
@@ -51,7 +54,7 @@
 	worst=$(./worst out_c2.txt)
 	echo "  $period   $worst" >> worst2.dat
 	cd ..
-	period=$(( period + 50 ))
+	period=$(( period + 35000 ))
 	done
 
 	cd tools
