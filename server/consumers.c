@@ -70,7 +70,6 @@ void set_scheduler()
 }
 
 
-
 /** Sets cpu for the tasks */
 
 void set_cpu_thread(pthread_t thread)
@@ -217,7 +216,7 @@ void *thread_main(void *arg)
 		else
 			next++;
 
-		/* exit critical section for finishing_time */
+		/* Exit critical section for finishing_time */
 
 		pthread_mutex_unlock(&mux_ft);
 
