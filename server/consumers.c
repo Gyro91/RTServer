@@ -49,8 +49,8 @@ void set_scheduler()
 	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 79 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 250 * 1000 * 1000;
+	attr.sched_runtime = 16 * 1000;
+	attr.sched_period = attr.sched_deadline = 50 * 1000;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
