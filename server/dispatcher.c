@@ -60,8 +60,8 @@ void write_pipe(char *myfifo, char *buffer, message_t *mess)
 
 
 	while ( (fd = open(myfifo, O_WRONLY | O_NONBLOCK)) == -1) {
-		printf("Pipe doesn't exist\n");
-	//	sleep(1);
+		//printf("Pipe doesn't exist\n");
+		//sleep(1);
 	}
 
 	remaining = sizeof(message_t);
@@ -81,12 +81,14 @@ void write_pipe(char *myfifo, char *buffer, message_t *mess)
 	}
 
 	/* Before closing descriptor,waiting client for finishing to read */
+
 	mkfifo(wc, 0666);
 
 	fd_w = open(wc, O_RDONLY);
-	read(fd, (void *)&buffer, 3);
+	read(fd_w, (void *)&buffer, 1);
 
 	close(fd_w);
+
 	close(fd);
 
 	unlink(wc);
@@ -108,13 +110,13 @@ int receive_dispatch_pkt()
 	ret = recv(cn_sk, (void *)&mess, sizeof(mess), MSG_WAITALL); /* receiving struct*/
 	handle_error_recv(ret);
 
+	/* taking arrival time */
+	clock_gettime(CLOCK_MONOTONIC, &mess.arrival_time);
+
 	if( status_c ){
 		buffer = (char *)malloc(mess.size);
 		ret = recv(cn_sk, buffer, mess.size, MSG_WAITALL); /* receive message */
 		handle_error_recv(ret);
-
-		/* taking arrival time */
-		clock_gettime(CLOCK_MONOTONIC, &mess.arrival_time);
 
 		/* if type1 sending to consumer 1,
 		 * otherwise sending to consumer2 */

@@ -23,7 +23,7 @@ void set_cpu(int pid_d, int pid_c1 , int pid_c2)
 	CPU_ZERO(&bitmap);
 	CPU_SET(1, &bitmap);
 	sched_setaffinity(pid_d, sizeof(bitmap), &bitmap);
-
+/*
 	CPU_ZERO(&bitmap);
 	CPU_SET(2, &bitmap);
 	sched_setaffinity(pid_c1, sizeof(bitmap), &bitmap);
@@ -31,7 +31,7 @@ void set_cpu(int pid_d, int pid_c1 , int pid_c2)
 	CPU_ZERO(&bitmap);
 	CPU_SET(3, &bitmap);
 	sched_setaffinity(pid_c2, sizeof(bitmap), &bitmap);
-
+*/
 }
 
 

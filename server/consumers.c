@@ -18,7 +18,7 @@
 #define __sched_priority sched_priority
 
 char *wc = "/tmp/wait_c";
-
+pthread_mutex_t mux_wc = PTHREAD_MUTEX_INITIALIZER;
 /** mutex for named pipe */
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
 /** mutex for finishing_time */
@@ -49,8 +49,8 @@ void set_scheduler()
 	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 15 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 50 * 1000 * 1000;
+	attr.sched_runtime = 79 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 250 * 1000 * 1000;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
@@ -120,12 +120,13 @@ size_t hash(char const *input) {
 
 void *thread_main(void *arg)
 {
-	int i, fd, ret, remaining; /* count variable and descriptor */
+	int i, fd, fd_w, ret, remaining; /* count variable and descriptor */
 	char *buffer;  /* buffer for data */
 	message_t mess;
+	char c = 'y';
 	
 
-//	set_scheduler();
+	set_scheduler();
 
 	while( LOOP ){
 
@@ -136,7 +137,7 @@ void *thread_main(void *arg)
 		/* Reading size data to be received */
 
 		mkfifo(arg, 0666);
-		fd = open(arg, O_RDONLY);
+		fd = open(arg, O_RDONLY );
 		if( fd == -1 )
 			printf("Error opening consumer\n");
 
@@ -170,15 +171,30 @@ void *thread_main(void *arg)
 
 		close(fd);
 		unlink(arg);
+		pthread_mutex_unlock(&mux_np);
 
 
+		/* Sending signal to dispatcher to close */
+
+		pthread_mutex_lock(&mux_wc);
+
+		mkfifo(wc, 0666);
+		//while( (fd_w = open(wc, O_WRONLY| O_NONBLOCK)) == -1 );
+		fd_w = open(wc, O_WRONLY);
+		ret = write(fd_w, &c, 1);
+		if( ret == -1 )
+			perror("Error write wait_c\n");
+
+		close(fd_w);
+		unlink(wc);
+		pthread_mutex_unlock(&mux_wc);
 		/* Exit critical section for named pipe*/
 
-		pthread_mutex_unlock(&mux_np);
+
 
 		/* Elaborating data */
 
-		for(i = 0; i < 100000; i++)
+		for(i = 0; i < 90000; i++)
 			hash(buffer);
 
 		/* Enter to critical section to protect struct for finishing_time */
@@ -187,13 +203,7 @@ void *thread_main(void *arg)
 
 		printf("#Finished job %s\n\n", consumer_x);
 
-		/* Sending signal to dispatcher to close */
 
-		fd = open(wc, O_WRONLY);
-
-		write(fd, "Hi", sizeof("Hi"));
-
-		close(fd);
 
 		/* Saving finishing & arrival, tid
 		 * and update index array */
@@ -330,7 +340,7 @@ int main(int argc, char *argv[])
 
 		/* Allocating cpu-unit for each thread */
 
-		set_cpu_thread(t_list[i]);
+		//set_cpu_thread(t_list[i]);
 	}
 
 	/* Father waits the end of threads */

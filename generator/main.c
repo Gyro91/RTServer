@@ -12,10 +12,9 @@ int sk; /* socket for communication between generator and server */
 int main(int argc, char *argv[])
 {
 	struct timespec t;
-	int period;
-	int number;
+	int c, number;
+	unsigned int period;
 	char *payload;
-	int c;
 	message_t mess; /** message to be delivered */
 
 	/* Get the values for period e number of packets to send */
@@ -85,7 +84,9 @@ int main(int argc, char *argv[])
 
 
 	}
+
 	close(sk);
+
     printf("#Generator finished\n");
 
 	return 0;

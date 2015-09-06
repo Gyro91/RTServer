@@ -11,11 +11,12 @@
 	rm tools/*.dat
   
 	#gnuplot
-	#plot 'plotting_data1.dat' with linespoints ls 1		
-	for i in `seq 1 4`;
+	#plot 'plotting_data1.dat' with linespoints ls 1		 
+	for i in `seq 1 5`;
 	do
 	cd /tmp
 	rm -f myfifo*
+	rm -f wait_c
 	cd /home/matteo/Desktop/project/script
 	rm -f tools/out_c*
 	cd ../server
@@ -23,7 +24,7 @@
 	sleep 1
 	cd ../generator
 	gnome-terminal -x bash -c "./generator -m$message -p$period" &
-	sleep 7
+	sleep 10
 	
 	cd ../script
 	while true;
@@ -54,7 +55,7 @@
 	worst=$(./worst out_c2.txt)
 	echo "  $period   $worst" >> worst2.dat
 	cd ..
-	period=$(( period + 35000 ))
+	period=$(( period + 20000 ))
 	done
 
 	cd tools
