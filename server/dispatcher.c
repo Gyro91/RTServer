@@ -87,8 +87,10 @@ void write_pipe(char *myfifo, char *buffer, message_t *mess)
 	fd_w = open(wc, O_RDONLY);
 	read(fd_w, (void *)&buffer, 1);
 
+	/* Closing pipe wait_c */
 	close(fd_w);
 
+	/* Closing descriptor with Consumer*/
 	close(fd);
 
 	unlink(wc);

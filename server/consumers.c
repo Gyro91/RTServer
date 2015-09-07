@@ -17,7 +17,9 @@
 #define DIM_NAME 10
 #define __sched_priority sched_priority
 
+/** pipe for sync between Consumer and Dispatcher */
 char *wc = "/tmp/wait_c";
+
 pthread_mutex_t mux_wc = PTHREAD_MUTEX_INITIALIZER;
 /** mutex for named pipe */
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
@@ -49,8 +51,8 @@ void set_scheduler()
 	attr.sched_priority = 0;
 
 	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 16 * 1000;
-	attr.sched_period = attr.sched_deadline = 50 * 1000;
+	attr.sched_runtime = 79 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = 250 * 1000 * 1000;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
