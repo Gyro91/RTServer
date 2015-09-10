@@ -114,7 +114,7 @@ void generate_payload(char *payload, unsigned char size)
 void generate_message(message_t *mess)
 {
 	mess->type = draw_message(); // random type
-	mess->size = (rand() % ( DIM_MAX_PAYLOAD + 1 )) + 8; // dim between 8 & DIM_MAX
+	mess->size = 30;//(rand() % ( DIM_MAX_PAYLOAD + 1 )) + 8; // dim between 8 & DIM_MAX
 
 }
 
@@ -126,7 +126,9 @@ void send_pkt(message_t *mess, char *payload)
 {
 	int ret;
 
+#ifdef VERBOSE
 	printf("Type: %d\nPayload: %s\n\n", mess->type, payload);
+#endif
 
 	// send struct
 	ret = send(sk, (void *)mess, sizeof(message_t), 0);
@@ -161,3 +163,5 @@ void time_add_micros(struct timespec *dst, long int ms)
 	  dst->tv_sec++;
   }
 }
+
+

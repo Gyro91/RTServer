@@ -4,7 +4,7 @@
 	var1=0
 	var2=0
 	message=1000	
-	period=1000
+	period=1
 	media=0
 	worst=0
 
@@ -12,12 +12,12 @@
   
 	#gnuplot
 	#plot 'plotting_data1.dat' with linespoints ls 1		 
-	for i in `seq 1 5`;
+	for i in `seq 1 10`;
 	do
 	cd /tmp
 	rm -f myfifo*
 	rm -f wait_c
-	cd /home/matteo/Desktop/project/script
+	cd /home/matteo/Desktop/progetto_matteo_rotundo/script
 	rm -f tools/out_c*
 	cd ../server
 	gnome-terminal -e ./server &
@@ -55,7 +55,7 @@
 	worst=$(./worst out_c2.txt)
 	echo "  $period   $worst" >> worst2.dat
 	cd ..
-	period=$(( period + 30000 ))
+	period=$(( period ))
 	done
 
 	cd tools

@@ -1,41 +1,32 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <linux/unistd.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <mqueue.h>
 #include "messages.h"
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
 #include <sched.h>
 #define LOOP 1
-
+#define __sched_priority sched_priority
 
 
 struct sockaddr_in my_addr, cl_addr; /** struct with address for server and client */
 int sk, cn_sk; /** socket and connected socket */
 int status_c = 0; /** status of connection */
 
-char *myfifo1 = "/tmp/myfifo1"; /** named pipe for IPC communication with consumer1 */
-char *myfifo2 = "/tmp/myfifo2";/** named pipe for IPC communication with consumer2 */
-char *wc = "/tmp/wait_c";  /** for waiting read of consumer */
+mqd_t mq1, mq2; /** Descriptor for each queue */
+char *wc = "/tmp/wait_c";
 
-
-/* add ms to the specific destination */
-
-void time_add_ms(struct timespec *dst, long int ms)
-{
-	dst->tv_sec += ms/1000;
-	dst->tv_nsec += (ms % 1000) * 1e6;
-
-	if (dst->tv_nsec > 1e9) {
-		dst->tv_nsec -= 1e9;
-		dst->tv_sec++;
-	}
-}
 
 
 /** handling return of recv: -1 error on socket, 0 if connection lost */
@@ -54,46 +45,11 @@ void handle_error_recv(int ret)
 	}
 }
 
-void write_pipe(char *myfifo, char *buffer, message_t *mess)
+void write_queue(mqd_t mq, char *buffer, message_t *mess)
 {
-	int fd, ret, remaining, fd_w;
+	CHECK(0 <= mq_send(mq, mess, DIM_MAX_PAYLOAD, 0));
 
-
-	while ( (fd = open(myfifo, O_WRONLY | O_NONBLOCK)) == -1) {
-		//printf("Pipe doesn't exist\n");
-		//sleep(1);
-	}
-
-	remaining = sizeof(message_t);
-	while (remaining > 0) {
-		ret = write(fd, (void *)mess + sizeof(message_t) - remaining, remaining); /* sending payload via IPC */
-		remaining -= ret;
-		if( ret  == -1)
-			perror("Errror write1\n");
-	}
-
-	remaining = mess->size;
-	while (remaining > 0) {
-		ret = write(fd, buffer + mess->size - remaining, remaining); /* sending payload via IPC */
-		remaining -= ret;
-		if( ret  == -1)
-			perror("Error write2\n");
-	}
-
-	/* Before closing descriptor,waiting client for finishing to read */
-
-	mkfifo(wc, 0666);
-
-	fd_w = open(wc, O_RDONLY);
-	read(fd_w, (void *)&buffer, 1);
-
-	/* Closing pipe wait_c */
-	close(fd_w);
-
-	/* Closing descriptor with Consumer*/
-	close(fd);
-
-	unlink(wc);
+	CHECK(0 <= mq_send(mq, buffer, DIM_MAX_PAYLOAD, 0));
 }
 
 /** @brief receive packet from generator
@@ -124,9 +80,9 @@ int receive_dispatch_pkt()
 		 * otherwise sending to consumer2 */
 
 		if( !mess.type )
-			write_pipe(myfifo1, buffer, &mess);
+			write_queue(mq1, buffer, &mess);
 		else
-			write_pipe(myfifo2, buffer, &mess);
+			write_queue(mq2, buffer, &mess);
 
 		free(buffer);
 	}
@@ -188,12 +144,49 @@ void accept_connection()
 
 }
 
+void set_scheduler()
+{
+	int ret;
+	struct sched_attr attr;
 
+	attr.size = sizeof(attr);
+	attr.sched_flags = 0;
+	attr.sched_nice = 0;
+	attr.sched_priority = 99;
+
+	attr.sched_policy = SCHED_FIFO;
+	attr.sched_runtime = 0;
+	attr.sched_period = attr.sched_deadline = 0;
+
+	ret = sched_setattr(0, &attr, 0);
+	if (ret < 0) {
+		perror("Error set_attr Dispatcher");
+		exit(1);
+	}
+
+
+
+}
+
+/** Opens queues for writing to consumers */
+
+void open_queues()
+{
+	/* Open the mail queue1 */
+
+	while( (mq1 = mq_open(QUEUE_NAME1, O_WRONLY)) == -1 );
+	CHECK((mqd_t)-1 != mq1);
+
+	/* Open the mail queue2 */
+
+	while( (mq2 = mq_open(QUEUE_NAME2, O_WRONLY)) == -1);
+	CHECK((mqd_t)-1 != mq2);
+
+	printf("#Dispatcher ready\n");
+}
 
 int main(int argc, char *argv[])
 {	
-	int period = 0; /** dispatcher is a process periodic */
-	struct timespec t;
 
 	printf("#Dispatcher created\n");
 
@@ -208,23 +201,20 @@ int main(int argc, char *argv[])
 	else
 		printf("test failed\n");
 	 */
+
+	open_queues();
+	set_scheduler();
+
 	// setup for a connection TCP
 	setup_TCP_server();
 	accept_connection();
 
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	time_add_ms(&t, period);
 	while( LOOP ){
 		// receive
 		receive_dispatch_pkt();
 
 		if( !status_c )
 			accept_connection();
-
-		// sleep to next period
-		clock_nanosleep(CLOCK_MONOTONIC,
-				TIMER_ABSTIME, &t, NULL);
-		time_add_ms(&t, period);
 
 	}
 

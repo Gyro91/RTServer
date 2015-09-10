@@ -4,6 +4,8 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <sys/syscall.h>
+
+
 #define gettid() syscall(__NR_gettid)
 #define SCHED_DEADLINE	6
 
@@ -23,6 +25,19 @@
 #define __NR_sched_getattr		381
 #endif
 
+#define QUEUE_NAME1  "/queue1"
+#define QUEUE_NAME2  "/queue2"
+#define MAX_SIZE    1024
+#define DIM_MAX_PAYLOAD 56
+
+#define CHECK(x) \
+    do { \
+        if (!(x)) { \
+            fprintf(stderr, "%s:%d: ", __func__, __LINE__); \
+            perror(#x); \
+            exit(-1); \
+        } \
+    } while (0) \
 
 /** number of message type  */
 

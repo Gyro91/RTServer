@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "consumers.h"
+#include "mqueue.h"
 
 #ifndef __USE_GNU
 #define __USE_GNU
@@ -16,11 +17,10 @@
 #define LOOP 1
 #define DIM_NAME 10
 #define __sched_priority sched_priority
+#define DIM 10000
 
-/** pipe for sync between Consumer and Dispatcher */
-char *wc = "/tmp/wait_c";
 
-pthread_mutex_t mux_wc = PTHREAD_MUTEX_INITIALIZER;
+
 /** mutex for named pipe */
 pthread_mutex_t mux_np = PTHREAD_MUTEX_INITIALIZER;
 /** mutex for finishing_time */
@@ -32,11 +32,11 @@ pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;
 /** name of the consumer */
 char consumer_x[DIM_NAME];
 /** circular array for recording processing times */
-struct processing_task pt[500];
+struct processing_task pt[DIM];
 /** index circular array */
 int next;
-
-
+/** Descriptor for queue*/
+mqd_t mq;
 
 /** changes scheduler */
 
@@ -48,27 +48,20 @@ void set_scheduler()
 	attr.size = sizeof(attr);
 	attr.sched_flags = 0;
 	attr.sched_nice = 0;
-	attr.sched_priority = 0;
+	attr.sched_priority = 99;
 
-	attr.sched_policy = SCHED_DEADLINE;
-	attr.sched_runtime = 79 * 1000 * 1000;
-	attr.sched_period = attr.sched_deadline = 250 * 1000 * 1000;
+	attr.sched_policy = SCHED_FIFO;
+	attr.sched_runtime = 0;
+	attr.sched_period = attr.sched_deadline = 0;
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
-		pthread_mutex_lock(&console_mux);
+	    pthread_mutex_lock(&console_mux);
 	    perror("ERROR: sched_setattr");
-	    printf("runtime: %lld\nperiod: %lld\ndeadline: %lld\n",
-	           attr.sched_runtime,
-	           attr.sched_period,
-	           attr.sched_deadline);
 	    pthread_mutex_unlock(&console_mux);
 	    pthread_exit(NULL);
 	  }
 
-	printf("Set SCHED_DEADLINE %lld/%lld\n",
-			attr.sched_runtime/ 1000000,
-			attr.sched_deadline / 1000000);
 }
 
 
@@ -107,11 +100,43 @@ size_t hash(char const *input) {
 	return ret;
 }
 
+/** Open queues for communication with Dispatcher */
 
+void open_queues()
+{
+	struct mq_attr attr;
+
+
+	/* initialize the queue attributes */
+
+	attr.mq_flags = 0;
+    attr.mq_maxmsg = 10000;
+    attr.mq_msgsize = DIM_MAX_PAYLOAD;
+    attr.mq_curmsgs = 0;
+
+    /* creates the message queue */
+
+    if(strcmp(consumer_x, "consumer1") == 0)
+        mq = mq_open(QUEUE_NAME1, O_CREAT | O_RDONLY, 0644, &attr);
+    else
+    	mq = mq_open(QUEUE_NAME2, O_CREAT | O_RDONLY, 0644, &attr);
+
+    CHECK((mqd_t)-1 != mq);
+
+
+    /* Sending signal to dispatcher */
+
+
+}
 
 /** this is the body of each thread:
  * - reads until there's a message( read is blocking )
- * - reads size of the message
+ * - reads size of the messagefd_w = open(wc, O_WRONLY);
+		ret = write(fd_w, &c, 1);
+		if( ret == -1 )
+			perror("Error write wait_c\n");
+
+		close(fd_w);
  * - reads the message
  * - elaborating
  * - reads again for another message to elaborate and so on
@@ -121,12 +146,12 @@ size_t hash(char const *input) {
 
 void *thread_main(void *arg)
 {
-	int i, fd, fd_w, ret, remaining; /* count variable and descriptor */
-	char *buffer;  /* buffer for data */
+	int i;
+	size_t  bytes_read;
+	char buffer[DIM_MAX_PAYLOAD];  /* buffer for data */
 	message_t mess;
-	char c = 'y';
 	
-
+	open_queues();
 	set_scheduler();
 
 	while( LOOP ){
@@ -137,74 +162,30 @@ void *thread_main(void *arg)
 
 		/* Reading size data to be received */
 
-		mkfifo(arg, 0666);
-		fd = open(arg, O_RDONLY );
-		if( fd == -1 )
-			printf("Error opening consumer\n");
-
-		remaining = sizeof(message_t);
-		while(remaining > 0){
-			ret = read(fd, (void *)&mess + sizeof(message_t) - remaining, remaining);
-			remaining -= ret;
-			if(ret == -1){
-				printf("Error read1\n");
-			}
-		}
-
-
-
-		printf("#Starting job %s\n", consumer_x);
-
+		bytes_read = mq_receive(mq,(char *)&mess, 56, NULL);
+		CHECK(bytes_read >= 0);
 
 		/* Allocating memory for size byte */
 
-		buffer = (char *)malloc(mess.size);
+
 
 		/* Reading data */
-		remaining = mess.size;
-		while(remaining > 0){
-			ret = read(fd, buffer + mess.size - remaining, remaining);
-			remaining -= ret;
-			if( ret == -1){
-				printf("Error read2\n");
-			}
-		}
+		bytes_read = mq_receive(mq, buffer, DIM_MAX_PAYLOAD, NULL);
+		CHECK(bytes_read >= 0);
 
-		close(fd);
-		unlink(arg);
+		//printf("%s\n", buffer);
+
 		pthread_mutex_unlock(&mux_np);
-
-
-		/* Sending signal to dispatcher to close */
-
-		pthread_mutex_lock(&mux_wc);
-
-		mkfifo(wc, 0666);
-		//while( (fd_w = open(wc, O_WRONLY| O_NONBLOCK)) == -1 );
-		fd_w = open(wc, O_WRONLY);
-		ret = write(fd_w, &c, 1);
-		if( ret == -1 )
-			perror("Error write wait_c\n");
-
-		close(fd_w);
-		unlink(wc);
-		pthread_mutex_unlock(&mux_wc);
-		/* Exit critical section for named pipe*/
-
 
 
 		/* Elaborating data */
 
-		for(i = 0; i < 90000; i++)
+		for(i = 0; i < 10000; i++)
 			hash(buffer);
 
 		/* Enter to critical section to protect struct for finishing_time */
 
 		pthread_mutex_lock(&mux_ft);
-
-		printf("#Finished job %s\n\n", consumer_x);
-
-
 
 		/* Saving finishing & arrival, tid
 		 * and update index array */
@@ -213,16 +194,13 @@ void *thread_main(void *arg)
 		clock_gettime(CLOCK_MONOTONIC, &pt[next].finishing_time);
 
 		pt[next].tid = gettid();
-		if(next == 499)
-			next = 0;
-		else
-			next++;
+		next = (next + 1) % DIM;
 
 		/* Exit critical section for finishing_time */
 
 		pthread_mutex_unlock(&mux_ft);
 
-		free(buffer);
+	//	free(buffer);
 	}
 
 	pthread_exit(0);
@@ -234,8 +212,8 @@ void *thread_main(void *arg)
 
 void *dummy_main(void *arg)
 {
-	int i;
-	int period = 5000; /* dummy is a task periodic */
+	int i, count = 0;
+	int period = 1000; /* dummy is a task periodic */
 	struct timespec t;
 	long int processing_t;  /* processing time */
 
@@ -254,10 +232,10 @@ void *dummy_main(void *arg)
 	time_add_ms(&t, period);
 	while( LOOP){
 
-		printf("#Report Dummy task %s\n", consumer_x);
+		printf("#Report Dummy task %s : packet:%d\n", consumer_x, count);
 
 		pthread_mutex_lock(&mux_ft);
-		for(i = 0; i <= next; i++){
+		for(i = 0; i < next; i++){
 			if( pt[i].tid > 0 ){
 				processing_t = calculate_pt(&pt[i].arrival_time,
 											&pt[i].finishing_time);
@@ -278,7 +256,7 @@ void *dummy_main(void *arg)
 				}
 
 				fprintf(f, "%ld\n", processing_t);
-
+				count++;
 				fclose(f);
 
 				#endif
@@ -341,7 +319,7 @@ int main(int argc, char *argv[])
 
 		/* Allocating cpu-unit for each thread */
 
-		//set_cpu_thread(t_list[i]);
+		set_cpu_thread(t_list[i]);
 	}
 
 	/* Father waits the end of threads */

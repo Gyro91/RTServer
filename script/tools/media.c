@@ -6,7 +6,7 @@
 
 void calculate_media(char *path)
 {
-	long double n, sum = 0, count = 0,
+	long  double n, sum = 0, count = 0,
 		  worst_case = 0, media;
 	
 

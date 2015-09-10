@@ -8,6 +8,31 @@
 struct sockaddr_in srv_addr; /** server address */
 int sk; /* socket for communication between generator and server */
 
+/* Sets SCHED_DEADLINE */
+
+void set_scheduler(long int period)
+{
+	    int ret;
+		struct sched_attr attr;
+
+		attr.size = sizeof(attr);
+                
+		attr.sched_flags = 0;
+		attr.sched_nice = 0;
+		attr.sched_priority = 99;
+
+		attr.sched_policy = SCHED_FIFO;
+		attr.sched_runtime =0;
+        attr.sched_period = 0;
+        attr.sched_deadline = 0;
+
+		ret = sched_setattr(0, &attr, 0);
+		if (ret < 0) {
+                    perror("Setattr ERROR");
+                    exit(1);
+		  }
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -51,6 +76,7 @@ int main(int argc, char *argv[])
 
 	// init: taking cpu
 	init_generator();
+	set_scheduler(period * 1000);
 
 	// connection TCP with server
 	setup_TCP_client();
@@ -73,6 +99,7 @@ int main(int argc, char *argv[])
 		// forwarding
 		send_pkt(&mess, payload);
 
+	//	printf("%s\n", payload);
 		// free payload for next packet
 		free(payload);
 		number--;
@@ -82,7 +109,7 @@ int main(int argc, char *argv[])
 				TIMER_ABSTIME, &t, NULL);
 		time_add_micros(&t, period);
 
-
+		//sched_yield();
 	}
 
 	close(sk);
