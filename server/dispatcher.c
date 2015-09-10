@@ -47,7 +47,7 @@ void handle_error_recv(int ret)
 
 void write_queue(mqd_t mq, char *buffer, message_t *mess)
 {
-	CHECK(0 <= mq_send(mq, mess, DIM_MAX_PAYLOAD, 0));
+	CHECK(0 <= mq_send(mq, (char *)mess, DIM_MAX_PAYLOAD, 0));
 
 	CHECK(0 <= mq_send(mq, buffer, DIM_MAX_PAYLOAD, 0));
 }

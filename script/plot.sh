@@ -7,9 +7,10 @@
 	var2=0
 	message=1000
 	period_min=10
-	period_max=100000
-	period_step=10
-	period_step_log=true
+	period_max=2000
+	period_step=100
+	period_step2=15
+	period_step_log=false
 	media=0
 	worst=0
 
@@ -20,6 +21,11 @@
 	period=$period_min
 	#for i in `seq 1 10`;
 	while [ $period -le $period_max ]; do
+            
+            if [ $period = 710 ] 
+            then  period_step=$period_step2
+	    fi
+            
             cd /tmp
             rm -f wait_c
             cd -
@@ -68,6 +74,9 @@
             else
                 period=$(( period + period_step ))
             fi
+	    
+	  
+	  
         done
 
 	cd tools

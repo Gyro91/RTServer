@@ -19,6 +19,8 @@ void set_scheduler(long int period)
                 
 		attr.sched_flags = 0;
 		attr.sched_nice = 0;
+
+
 		attr.sched_priority = 99;
 
 		attr.sched_policy = SCHED_FIFO;

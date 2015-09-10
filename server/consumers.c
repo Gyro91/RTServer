@@ -74,9 +74,9 @@ void set_cpu_thread(pthread_t thread)
 	CPU_ZERO(&bitmap);
 	
 	if(!strncmp(consumer_x, "consumer1", DIM_NAME))
-		CPU_SET(2, &bitmap);
+		CPU_SET(4, &bitmap);
 	else
-		CPU_SET(3, &bitmap);
+		CPU_SET(6, &bitmap);
 	
 	pthread_setaffinity_np(thread,sizeof(bitmap), &bitmap);
 
@@ -106,20 +106,23 @@ void open_queues()
 {
 	struct mq_attr attr;
 
-
+/*	if(strcmp(consumer_x, "consumer1") == 0)
+		mq_unlink(QUEUE_NAME1);
+	else
+		mq_unlink(QUEUE_NAME2);*/
 	/* initialize the queue attributes */
 
 	attr.mq_flags = 0;
-    attr.mq_maxmsg = 10000;
+    attr.mq_maxmsg = 5000;
     attr.mq_msgsize = DIM_MAX_PAYLOAD;
     attr.mq_curmsgs = 0;
 
     /* creates the message queue */
 
     if(strcmp(consumer_x, "consumer1") == 0)
-        mq = mq_open(QUEUE_NAME1, O_CREAT | O_RDONLY, 0644, &attr);
+        mq = mq_open(QUEUE_NAME1, O_CREAT | O_RDONLY, 0666, &attr);
     else
-    	mq = mq_open(QUEUE_NAME2, O_CREAT | O_RDONLY, 0644, &attr);
+    	mq = mq_open(QUEUE_NAME2, O_CREAT | O_RDONLY, 0666, &attr);
 
     CHECK((mqd_t)-1 != mq);
 
