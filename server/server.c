@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
 				// Setting affinity
 
-				set_cpu(pid_d, pid_c1, pid_c2);
+				//set_cpu(pid_d, pid_c1, pid_c2);
 
 				// Waits children
 

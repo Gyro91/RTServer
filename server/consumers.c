@@ -48,11 +48,11 @@ void set_scheduler()
 	attr.size = sizeof(attr);
 	attr.sched_flags = 0;
 	attr.sched_nice = 0;
-	attr.sched_priority = 99;
+	attr.sched_priority = 0;
 
-	attr.sched_policy = SCHED_FIFO;
-	attr.sched_runtime = 0;
-	attr.sched_period = attr.sched_deadline = 0;
+	attr.sched_policy = SCHED_DEADLINE;
+	attr.sched_runtime = 5 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = (attr.sched_runtime / 0.95);
 	
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
@@ -106,15 +106,19 @@ void open_queues()
 {
 	struct mq_attr attr;
 
+	 if(strcmp(consumer_x, "consumer1") == 0)
+		 unlink(QUEUE_NAME1);
+	 else
+		 unlink(QUEUE_NAME2);
 
-	/* initialize the queue attributes */
+	/* Initialize the queue attributes */
 
 	attr.mq_flags = 0;
-    attr.mq_maxmsg = 10000;
+    attr.mq_maxmsg = 5000;
     attr.mq_msgsize = DIM_MAX_PAYLOAD;
     attr.mq_curmsgs = 0;
 
-    /* creates the message queue */
+    /* Creates the message queue */
 
     if(strcmp(consumer_x, "consumer1") == 0)
         mq = mq_open(QUEUE_NAME1, O_CREAT | O_RDONLY, 0644, &attr);
@@ -123,8 +127,6 @@ void open_queues()
 
     CHECK((mqd_t)-1 != mq);
 
-
-    /* Sending signal to dispatcher */
 
 
 }
@@ -319,7 +321,7 @@ int main(int argc, char *argv[])
 
 		/* Allocating cpu-unit for each thread */
 
-		set_cpu_thread(t_list[i]);
+	//	set_cpu_thread(t_list[i]);
 	}
 
 	/* Father waits the end of threads */

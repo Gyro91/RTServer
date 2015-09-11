@@ -19,12 +19,12 @@ void set_scheduler(long int period)
                 
 		attr.sched_flags = 0;
 		attr.sched_nice = 0;
-		attr.sched_priority = 99;
+		attr.sched_priority = 0;
 
-		attr.sched_policy = SCHED_FIFO;
-		attr.sched_runtime =0;
-        attr.sched_period = 0;
-        attr.sched_deadline = 0;
+		attr.sched_policy = SCHED_DEADLINE;
+		attr.sched_runtime = period * 0.95;
+        attr.sched_period = period;
+        attr.sched_deadline = period;
 
 		ret = sched_setattr(0, &attr, 0);
 		if (ret < 0) {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 
 	// init: taking cpu
 	init_generator();
-	set_scheduler(period * 1000);
+//	set_scheduler(period * 1000);
 
 	// connection TCP with server
 	setup_TCP_client();

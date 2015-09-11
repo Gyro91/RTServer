@@ -47,7 +47,7 @@ void handle_error_recv(int ret)
 
 void write_queue(mqd_t mq, char *buffer, message_t *mess)
 {
-	CHECK(0 <= mq_send(mq, mess, DIM_MAX_PAYLOAD, 0));
+	CHECK(0 <= mq_send(mq, (char *)mess, DIM_MAX_PAYLOAD, 0));
 
 	CHECK(0 <= mq_send(mq, buffer, DIM_MAX_PAYLOAD, 0));
 }
@@ -152,11 +152,11 @@ void set_scheduler()
 	attr.size = sizeof(attr);
 	attr.sched_flags = 0;
 	attr.sched_nice = 0;
-	attr.sched_priority = 99;
+	attr.sched_priority = 0;
 
-	attr.sched_policy = SCHED_FIFO;
-	attr.sched_runtime = 0;
-	attr.sched_period = attr.sched_deadline = 0;
+	attr.sched_policy = SCHED_DEADLINE;
+	attr.sched_runtime = 1 * 1000 * 1000;
+	attr.sched_period = attr.sched_deadline = attr.sched_runtime / 0.95;
 
 	ret = sched_setattr(0, &attr, 0);
 	if (ret < 0) {
