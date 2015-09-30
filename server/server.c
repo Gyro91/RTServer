@@ -45,7 +45,6 @@ int main(int argc, char *argv[])
 
 	// Creates consumers & dispatcher
 
-	snprintf(buffer, 10, "%d", 100);
 	pid_d = fork();
 	if( pid_d == 0 ){
 

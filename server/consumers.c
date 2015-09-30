@@ -113,7 +113,7 @@ void open_queues()
 	/* initialize the queue attributes */
 
 	attr.mq_flags = 0;
-    attr.mq_maxmsg = 5000;
+    attr.mq_maxmsg = 10000;
     attr.mq_msgsize = DIM_MAX_PAYLOAD;
     attr.mq_curmsgs = 0;
 

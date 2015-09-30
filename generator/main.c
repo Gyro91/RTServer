@@ -8,7 +8,7 @@
 struct sockaddr_in srv_addr; /** server address */
 int sk; /* socket for communication between generator and server */
 
-/* Sets SCHED_DEADLINE */
+/* Changes scheduler */
 
 void set_scheduler(long int period)
 {
